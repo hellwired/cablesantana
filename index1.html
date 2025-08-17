@@ -1,0 +1,344 @@
+```html
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard Cable Color Santa Ana</title>
+    <style>
+        /* General Styles */
+        body {
+            font-family: sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #002047;
+            color: #FFFFFF;
+        }
+
+        .container {
+            padding: 2rem;
+            max-width: 1200px;
+            margin: auto;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 2rem;
+        }
+
+        /* Typography */
+        h1 {
+            font-size: 2.5rem;
+            font-weight: bold;
+            color: #FFFFFF;
+            margin-bottom: 2rem;
+        }
+
+        h2 {
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: #FFFFFF;
+            margin-bottom: 1rem;
+        }
+
+        .callout {
+            font-size: 1.25rem;
+            font-weight: bold;
+            color: #FFFFFF;
+        }
+
+        .small-text {
+            font-size: 0.75rem;
+            font-weight: normal;
+            color: #A9A9A9;
+        }
+
+        .main-text {
+            color: #FFFFFF;
+        }
+
+        /* Buttons */
+        .btn-primary {
+            background-color: #FF4444;
+            color: #FFFFFF;
+            border: none;
+            border-radius: 4px;
+            padding: 12px 24px;
+            font-weight: bold;
+            text-decoration: none;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+        }
+
+        .btn-primary:hover {
+            background-color: #ff6666;
+        }
+
+        .btn-secondary {
+            background-color: #FFFFFF;
+            color: #002047;
+            border: 1px solid #002047;
+            border-radius: 4px;
+            padding: 12px 24px;
+            font-weight: bold;
+            text-decoration: none;
+            cursor: pointer;
+            transition: background-color 0.3s ease, color 0.3s ease;
+        }
+
+        .btn-secondary:hover {
+            background-color: #f0f0f0;
+        }
+
+        .quick-actions {
+            display: flex;
+            gap: 1rem;
+            margin-bottom: 2rem;
+            flex-wrap: wrap;
+        }
+
+        /* Cards */
+        .card {
+            background-color: #002047;
+            border-radius: 8px;
+            padding: 1rem;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+            border: 1px solid #D3D3D3;
+        }
+
+        .card-content {
+            padding: 1rem;
+        }
+
+        .card-emphasis {
+            background-color: #002047;
+            position: relative;
+            z-index: 1;
+        }
+
+        .card-emphasis::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: linear-gradient(135deg, rgba(0, 32, 71, 0.8) 0%, rgba(0, 32, 71, 0.6) 100%);
+            border-radius: 8px;
+            z-index: -1;
+        }
+
+        /* Progress Bar */
+        .progress-bar-container {
+            background-color: #D3D3D3;
+            border-radius: 4px;
+            height: 8px;
+            width: 100%;
+            margin-top: 0.5rem;
+        }
+
+        .progress-bar {
+            background-color: #FF4444;
+            height: 100%;
+            border-radius: 4px;
+        }
+
+        /* Charts */
+        .chart-container {
+            position: relative;
+            height: 200px;
+            width: 100%;
+            background-color: #FFFFFF;
+            border-radius: 8px;
+            margin-top: 1rem;
+            padding: 1rem;
+        }
+
+        canvas {
+            max-width: 100%;
+            height: 100%;
+        }
+
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <h1>Metricas Cable Color Santa Ana</h1>
+
+        <div class="quick-actions">
+            <a href="#" class="btn-primary">Acceder a Planes</a>
+            <a href="#" class="btn-primary">Realizar Pagos</a>
+            <a href="#" class="btn-primary">Ver Estados</a>
+        </div>
+
+        <div class="grid">
+            <div class="card card-emphasis">
+                <div class="card-content">
+                    <h2>Métricas de Suscripciones</h2>
+                    <div style="margin-bottom: 1rem;">
+                        <p class="callout">Suscripciones Totales</p>
+                        <p style="font-size: 2rem; font-weight: bold; margin: 0;">1,250</p>
+                    </div>
+                    <div>
+                        <p class="callout">Nuevas Suscripciones (este mes)</p>
+                        <p style="font-size: 2rem; font-weight: bold; margin: 0;">85</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-content">
+                    <h2>Planes Activos</h2>
+                    <div style="margin-bottom: 1rem;">
+                        <p class="callout">Plan Básico</p>
+                        <p class="main-text">Progreso: <span class="callout">75%</span></p>
+                        <div class="progress-bar-container">
+                            <div class="progress-bar" style="width: 75%;"></div>
+                        </div>
+                        <p class="small-text">3 de 4 módulos completados</p>
+                    </div>
+                    <div>
+                        <p class="callout">Plan Avanzado</p>
+                        <p class="main-text">Progreso: <span class="callout">40%</span></p>
+                        <div class="progress-bar-container">
+                            <div class="progress-bar" style="width: 40%;"></div>
+                        </div>
+                        <p class="small-text">2 de 5 módulos completados</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-content">
+                    <h2>Rendimiento Semanal</h2>
+                    <div class="chart-container">
+                        <canvas id="weeklyPerformanceChart"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card" style="grid-column: span 3;">
+                <div class="card-content">
+                    <h2>Rendimiento Mensual</h2>
+                    <div class="chart-container">
+                        <canvas id="monthlyPerformanceChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            // Datos de ejemplo para las gráficas
+            const weeklyData = {
+                labels: ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'],
+                datasets: [{
+                    label: 'Horas de Estudio',
+                    data: [2, 3, 1.5, 4, 3, 2.5, 1],
+                    backgroundColor: '#FF4444',
+                    borderColor: '#FF4444',
+                    borderWidth: 1,
+                    fill: false,
+                    tension: 0.4
+                }]
+            };
+
+            const monthlyData = {
+                labels: ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul'],
+                datasets: [{
+                    label: 'Módulos Completados',
+                    data: [5, 8, 12, 10, 15, 18, 20],
+                    backgroundColor: 'rgba(255, 68, 68, 0.6)',
+                    borderColor: '#FF4444',
+                    borderWidth: 1,
+                    barThickness: 20
+                }]
+            };
+
+            // Configuración de la gráfica semanal
+            const weeklyConfig = {
+                type: 'line',
+                data: weeklyData,
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: false
+                        }
+                    },
+                    scales: {
+                        x: {
+                            ticks: {
+                                color: '#000000'
+                            },
+                            grid: {
+                                color: '#D3D3D3'
+                            }
+                        },
+                        y: {
+                            beginAtZero: true,
+                            ticks: {
+                                color: '#000000'
+                            },
+                            grid: {
+                                color: '#D3D3D3'
+                            }
+                        }
+                    }
+                }
+            };
+
+            // Configuración de la gráfica mensual
+            const monthlyConfig = {
+                type: 'bar',
+                data: monthlyData,
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: false
+                        }
+                    },
+                    scales: {
+                        x: {
+                            ticks: {
+                                color: '#000000'
+                            },
+                            grid: {
+                                color: '#D3D3D3'
+                            }
+                        },
+                        y: {
+                            beginAtZero: true,
+                            ticks: {
+                                color: '#000000'
+                            },
+                            grid: {
+                                color: '#D3D3D3'
+                            }
+                        }
+                    }
+                }
+            };
+
+            // Renderizar las gráficas
+            const weeklyChart = new Chart(
+                document.getElementById('weeklyPerformanceChart'),
+                weeklyConfig
+            );
+
+            const monthlyChart = new Chart(
+                document.getElementById('monthlyPerformanceChart'),
+                monthlyConfig
+            );
+        });
+    </script>
+</body>
+</html>
+```
