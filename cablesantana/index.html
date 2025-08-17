@@ -1,0 +1,178 @@
+<!-- index.html -->
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cable Color Santa Ana - Tu Conexión al Futuro</title>
+    <!-- Load Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Load Inter font from Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <!-- Link to external CSS file -->
+    <link rel="stylesheet" href="style.css">
+    <!-- Load Anime.js for JavaScript animations -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js"></script>
+</head>
+<body class="bg-gray-100 text-gray-800">
+
+    <!-- Header -->
+    <header class="bg-blue-600 text-white p-4 shadow-md sticky top-0 z-50">
+        <div class="container mx-auto flex justify-between items-center">
+            <div class="flex items-center space-x-3">
+                <!-- Animated SVG for the logo -->
+                <svg class="animated-svg-icon w-8 h-8 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M5 12.55a11 11 0 0 1 14.08 0"></path>
+                    <path d="M1.42 9a16 16 0 0 1 21.16 0"></path>
+                    <path d="M8.53 16.11a6 6 0 0 1 6.95 0"></path>
+                    <line x1="12" y1="20" x2="12" y2="20"></line>
+                </svg>
+                <h1 class="text-3xl font-bold animated-title-pulse">Cable Color Santa Ana</h1>
+            </div>
+            <nav>
+                <ul class="flex space-x-4">
+                    <li><a href="#inicio" class="text-white hover:text-blue-200 transition-colors duration-300 rounded-md px-3 py-2">Inicio</a></li>
+                    <li><a href="#servicios" class="text-white hover:text-blue-200 transition-colors duration-300 rounded-md px-3 py-2">Servicios</a></li>
+                    <li><a href="#planes" class="text-white hover:text-blue-200 transition-colors duration-300 rounded-md px-3 py-2">Planes</a></li>
+                    <li><a href="#contacto" class="text-white hover:text-blue-200 transition-colors duration-300 rounded-md px-3 py-2">Contacto</a></li>
+                    <li><a href="login.php" class="text-white hover:text-blue-200 transition-colors duration-300 rounded-md px-3 py-2">Login</a></li>
+                </ul>
+            </nav>
+        </div>
+    </header>
+
+    <!-- Home Section (Hero) -->
+    <section id="inicio" class="bg-gradient-to-r from-blue-500 to-blue-700 text-white py-20 text-center">
+        <div class="container mx-auto px-4">
+            <!-- Elements for JS sequence animation (appear one after another) -->
+            <p class="text-lg mb-4 opacity-0 js-sequence-item">Bienvenido a</p>
+            <h2 class="text-6xl md:text-7xl font-extrabold mb-6 opacity-0 js-sequence-item">
+                <span class="block">La Conexión</span>
+                <span class="block mt-2">que te Impulsa</span>
+            </h2>
+            <p class="text-xl mb-8 opacity-0 js-sequence-item">Internet de alta velocidad y televisión digital para tu hogar y negocio.</p>
+            <button id="ctaButton" class="bg-white text-blue-700 font-bold py-3 px-8 rounded-full shadow-lg hover:bg-blue-100 hover:scale-105 transition-all duration-300 ease-in-out">
+                Explorar Servicios
+            </button>
+        </div>
+    </section>
+
+    <!-- Services Section -->
+    <section id="servicios" class="py-16 bg-gray-50">
+        <div class="container mx-auto px-4">
+            <h2 class="text-4xl font-bold text-center mb-12 scroll-reveal-item">Nuestros Servicios</h2>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+                <!-- Service Card 1 -->
+                <div class="bg-white p-6 rounded-lg shadow-md scroll-reveal-item">
+                    <h3 class="text-2xl font-semibold mb-4 text-blue-600">Internet Fibra Óptica</h3>
+                    <p class="text-gray-700">Velocidad y estabilidad para que navegues, trabajes y estudies sin interrupciones.</p>
+                </div>
+                <!-- Service Card 2 -->
+                <div class="bg-white p-6 rounded-lg shadow-md scroll-reveal-item">
+                    <h3 class="text-2xl font-semibold mb-4 text-blue-600">Televisión Digital</h3>
+                    <p class="text-gray-700">La mejor programación con calidad de imagen y sonido superior.</p>
+                </div>
+                <!-- Service Card 3 -->
+                <div class="bg-white p-6 rounded-lg shadow-md scroll-reveal-item">
+                    <h3 class="text-2xl font-semibold mb-4 text-blue-600">Soporte Técnico 24/7</h3>
+                    <p class="text-gray-700">Siempre disponibles para resolver tus dudas y problemas.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Plans and Pricing Section -->
+    <section id="planes" class="py-16 bg-blue-50">
+        <div class="container mx-auto px-4">
+            <h2 class="text-4xl font-bold text-center mb-12 scroll-reveal-item">Nuestros Planes</h2>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+                <!-- Plan Card 1 -->
+                <div class="bg-white p-6 rounded-lg shadow-md scroll-reveal-item transform hover:scale-105 transition-transform duration-300">
+                    <h3 class="text-2xl font-semibold mb-4 text-blue-600">Plan Básico</h3>
+                    <p class="text-gray-700 mb-4">Ideal para uso doméstico ligero.</p>
+                    <ul class="list-disc list-inside text-gray-600 mb-6">
+                        <li>50 Mbps Internet</li>
+                        <li>Canales Digitales Esenciales</li>
+                        <li>Soporte 24/7</li>
+                    </ul>
+                    <div class="text-3xl font-bold text-blue-800 mb-6">$29.99/mes</div>
+                    <button class="w-full bg-blue-600 text-white font-bold py-3 px-8 rounded-full shadow-lg hover:bg-blue-700 transition-colors duration-300">Contratar Ahora</button>
+                </div>
+                <!-- Plan Card 2 -->
+                <div class="bg-white p-6 rounded-lg shadow-md scroll-reveal-item transform hover:scale-105 transition-transform duration-300">
+                    <h3 class="text-2xl font-semibold mb-4 text-blue-600">Plan Estándar</h3>
+                    <p class="text-gray-700 mb-4">Perfecto para familias y teletrabajo.</p>
+                    <ul class="list-disc list-inside text-gray-600 mb-6">
+                        <li>100 Mbps Internet</li>
+                        <li>Canales Digitales Premium</li>
+                        <li>Soporte 24/7 Prioritario</li>
+                    </ul>
+                    <div class="text-3xl font-bold text-blue-800 mb-6">$49.99/mes</div>
+                    <button class="w-full bg-blue-600 text-white font-bold py-3 px-8 rounded-full shadow-lg hover:bg-blue-700 transition-colors duration-300">Contratar Ahora</button>
+                </div>
+                <!-- Plan Card 3 -->
+                <div class="bg-white p-6 rounded-lg shadow-md scroll-reveal-item transform hover:scale-105 transition-transform duration-300">
+                    <h3 class="text-2xl font-semibold mb-4 text-blue-600">Plan Premium</h3>
+                    <p class="text-gray-700 mb-4">Máxima velocidad para gamers y streaming 4K.</p>
+                    <ul class="list-disc list-inside text-gray-600 mb-6">
+                        <li>200 Mbps Internet</li>
+                        <li>Todos los Canales HD</li>
+                        <li>Soporte Técnico Dedicado</li>
+                    </ul>
+                    <div class="text-3xl font-bold text-blue-800 mb-6">$79.99/mes</div>
+                    <button class="w-full bg-blue-600 text-white font-bold py-3 px-8 rounded-full shadow-lg hover:bg-blue-700 transition-colors duration-300">Contratar Ahora</button>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Interactive Section (Complex JS Animation) -->
+    <section id="interactiva" class="py-16 bg-blue-100 text-center">
+        <div class="container mx-auto px-4">
+            <h2 class="text-4xl font-bold mb-8 scroll-reveal-item">¡Interactúa con Nosotros!</h2>
+            <p class="text-lg mb-8 scroll-reveal-item">Haz clic en el botón para ver una animación especial.</p>
+            <button id="jsComplexAnimationBtn" class="bg-blue-600 text-white font-bold py-3 px-8 rounded-full shadow-lg hover:bg-blue-700 transition-colors duration-300 ease-in-out">
+                Haz Clic Aquí
+            </button>
+            <div id="explosionContainer" class="relative w-64 h-64 mx-auto mt-8 border-2 border-dashed border-blue-400 rounded-lg flex items-center justify-center overflow-hidden">
+                <p class="text-blue-400 text-sm">Contenedor de Explosión</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- Contact Section -->
+    <section id="contacto" class="py-16 bg-white">
+        <div class="container mx-auto px-4 text-center">
+            <h2 class="text-4xl font-bold mb-8 scroll-reveal-item">Contáctanos</h2>
+            <p class="text-lg mb-8 scroll-reveal-item">Envíanos un mensaje y te responderemos a la brevedad.</p>
+            <form id="contactForm" class="max-w-lg mx-auto bg-gray-100 p-8 rounded-lg shadow-md">
+                <div class="mb-6">
+                    <label for="name" class="block text-gray-700 text-sm font-bold mb-2 text-left">Nombre:</label>
+                    <input type="text" id="name" name="name" class="shadow appearance-none border rounded w-full py-3 px-4 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" required>
+                </div>
+                <div class="mb-6">
+                    <label for="email" class="block text-gray-700 text-sm font-bold mb-2 text-left">Correo Electrónico:</label>
+                    <input type="email" id="email" name="email" class="shadow appearance-none border rounded w-full py-3 px-4 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" required>
+                </div>
+                <div class="mb-6">
+                    <label for="message" class="block text-gray-700 text-sm font-bold mb-2 text-left">Mensaje:</label>
+                    <textarea id="message" name="message" rows="5" class="shadow appearance-none border rounded w-full py-3 px-4 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" required></textarea>
+                </div>
+                <button type="submit" class="bg-blue-600 text-white font-bold py-3 px-8 rounded-full shadow-lg hover:bg-blue-700 hover:scale-105 transition-all duration-300 ease-in-out">
+                    Enviar Mensaje
+                </button>
+            </form>
+            <div id="formMessage" class="mt-4 text-green-600 font-semibold hidden">¡Mensaje enviado con éxito!</div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="bg-gray-800 text-white py-8">
+        <div class="container mx-auto px-4 text-center">
+            <p>&copy; 2025 Cable Color Santa Ana. Todos los derechos reservados.</p>
+        </div>
+    </footer>
+   <!-- Link to external JavaScript file -->
+    <script src="script.js"></script>
+</body>
+</html>
