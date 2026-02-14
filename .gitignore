@@ -1,0 +1,28 @@
+# Dependencias
+vendor/
+
+# Configuracion local
+.env
+
+# Debug y pruebas temporales
+debug_*.php
+test_*.php
+test_*.html
+simulate_*.php
+brute_force_db.php
+check_*.php
+kill_mysql_processes.php
+ajax_debug.log
+
+# Backups SQL
+sqlbackup/
+
+# Composer backups
+composer.json.bak
+composer.lock.bak
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
