@@ -87,3 +87,114 @@ Permitir un margen de tiempo (días de gracia) después del vencimiento de una f
 *   `/morosos_model.php` (Funciones `getGraceDays`, `updateGraceDays`)
 *   `/check_client_status.php` (Lógica de negocio principal)
 *   `/update_config_grace.php` (Script de migración DB)
+
+---
+
+## 6. Facturación Automática Mensual
+
+### Objetivo
+Eliminar la generación manual de facturas mes a mes. Un botón en el dashboard permite al administrador generar todas las facturas del mes con un solo clic.
+
+### Implementación
+
+1.  **Modelo (`facturacion_model.php`)** — Archivo nuevo:
+    *   `generateMonthlyInvoices()`: Consulta todas las suscripciones activas, verifica si ya existe factura del mes actual (previene duplicados), crea facturas con `estado = 'pendiente'` y `fecha_vencimiento = último día del mes`. Actualiza `fecha_proximo_cobro` al 1ro del mes siguiente. Marca facturas pasadas de `pendiente` → `vencida` si ya vencieron. Todo ejecutado en una transacción atómica. Retorna resumen: `{created, skipped, total_amount, errors, overdue_updated}`.
+    *   `getInvoiceGenerationStatus()`: Retorna cuántas suscripciones activas hay vs cuántas ya tienen factura este mes, para mostrar el estado antes de presionar el botón.
+
+2.  **Endpoint AJAX (`ajax_generate_invoices.php`)** — Archivo nuevo:
+    *   POST protegido con sesión + rol `administrador` + token CSRF.
+    *   Acción `generate`: ejecuta `generateMonthlyInvoices()` y registra en auditoría.
+    *   Acción `status`: retorna el estado actual de generación.
+
+3.  **Dashboard (`dashboard.php`)** — Modificado:
+    *   Nueva card "Facturación Mensual" visible solo para administradores.
+    *   Muestra estado actual: "X de Y suscripciones ya tienen factura este mes".
+    *   Botón "Generar Facturas del Mes" con confirmación JavaScript.
+    *   Al hacer clic: llamada AJAX → spinner → resultado con detalle (creadas, omitidas, monto total, errores).
+    *   Botón se deshabilita automáticamente si todas las facturas ya fueron generadas.
+
+### Archivos Afectados
+*   `/facturacion_model.php` (Nuevo — modelo de facturación masiva)
+*   `/ajax_generate_invoices.php` (Nuevo — endpoint AJAX)
+*   `/dashboard.php` (Modificado — card de facturación + JS)
+
+---
+
+## 7. Notificaciones WhatsApp a Morosos
+
+### Objetivo
+Permitir el envío de mensajes de WhatsApp a clientes morosos mediante la API de CallMeBot, con preview previo, registro de historial y template configurable.
+
+### Migración de Base de Datos
+Script: `basedatos/migration_notificaciones.sql` (ejecución manual):
+*   `ALTER TABLE clientes`: Agrega columnas `telefono` (VARCHAR 20) y `whatsapp_apikey` (VARCHAR 100).
+*   `CREATE TABLE notificaciones`: Registra cada notificación enviada con `cliente_id`, `tipo` (whatsapp/email/sms), `mensaje`, `estado` (enviado/fallido/pendiente), `error_detalle`, `factura_id`.
+*   `INSERT INTO configuracion`: Template por defecto con placeholders `{nombre}`, `{facturas}`, `{monto}`.
+
+### Implementación
+
+1.  **Modelo (`notificacion_model.php`)** — Archivo nuevo:
+    *   `getDebtorsForNotification()`: Obtiene morosos con teléfono y apikey configurados, excluyendo los que ya fueron notificados en las últimas 24 horas por la misma factura.
+    *   `sendWhatsAppMessage($phone, $apikey, $message)`: Envía mensaje vía CallMeBot API (soporta cURL con fallback a `file_get_contents`).
+    *   `buildNotificationMessage($client, $template)`: Reemplaza placeholders `{nombre}`, `{facturas}`, `{monto}` en el template.
+    *   `logNotification(...)`: Registra cada notificación en la tabla `notificaciones`.
+    *   `getNotificationHistory($limit)`: Historial de notificaciones con datos del cliente.
+    *   `getWhatsAppTemplate()` / `updateWhatsAppTemplate($template)`: Lectura y escritura del template en `configuracion`.
+
+2.  **Endpoint AJAX (`ajax_send_notifications.php`)** — Archivo nuevo:
+    *   POST protegido con sesión + rol `administrador`/`editor` + CSRF.
+    *   Acción `preview`: Retorna lista de clientes que recibirían notificación con el mensaje exacto.
+    *   Acción `send`: Envía mensajes uno a uno con `sleep(2)` entre cada uno (rate limit de CallMeBot). Registra resultado en tabla `notificaciones` y en auditoría.
+    *   Acción `update_template`: Actualiza el template (solo admin).
+
+3.  **Morosos (`morosos_ui.php`)** — Modificado:
+    *   Botón "Enviar Notificaciones WhatsApp" en el header de la card de morosos.
+    *   Link "Historial" para acceder a `notificaciones_ui.php`.
+    *   Modal de preview: muestra tabla con cliente, teléfono, facturas, deuda y mensaje antes de enviar.
+    *   Botón "Confirmar y Enviar" con progreso visual y tabla de resultados.
+    *   Sección de configuración del template de mensaje (solo admin), con variables disponibles documentadas.
+
+4.  **Historial (`notificaciones_ui.php`)** — Archivo nuevo:
+    *   Página de historial de notificaciones enviadas.
+    *   Tabla DataTables con: fecha, cliente, teléfono, tipo, estado (badges de colores), mensaje truncado, error.
+    *   Accesible desde `morosos_ui.php`.
+
+### Archivos Afectados
+*   `/basedatos/migration_notificaciones.sql` (Nuevo — migración SQL)
+*   `/notificacion_model.php` (Nuevo — modelo de notificaciones)
+*   `/ajax_send_notifications.php` (Nuevo — endpoint AJAX)
+*   `/notificaciones_ui.php` (Nuevo — historial de notificaciones)
+*   `/morosos_ui.php` (Modificado — botones, modal, config template)
+
+---
+
+## 8. Campos de Teléfono y API Key en Gestión de Clientes
+
+### Objetivo
+Permitir registrar el teléfono de WhatsApp y la API Key de CallMeBot de cada cliente, necesarios para el envío de notificaciones.
+
+### Implementación
+
+1.  **Modelo (`client_model.php`)** — Modificado:
+    *   `createClient()`: Acepta parámetros `$telefono` y `$whatsapp_apikey`. INSERT actualizado a 8 campos.
+    *   `getClientById()`: SELECT actualizado para incluir `telefono` y `whatsapp_apikey`.
+    *   `getAllClients()` y `searchClients()`: Queries actualizados para incluir los nuevos campos.
+    *   `updateClient()` ya soporta los nuevos campos dinámicamente (acepta cualquier clave en `$data`).
+
+2.  **Formulario de Crear (`clients_ui.php`)** — Modificado:
+    *   Nuevos campos "Teléfono (WhatsApp)" con placeholder de formato internacional.
+    *   Campo "WhatsApp API Key" con tooltip explicativo sobre cómo obtenerlo de CallMeBot.
+    *   POST handler actualizado para pasar los nuevos campos a `createClient()`.
+
+3.  **Modal de Editar (`clients_ui.php`)** — Modificado:
+    *   Mismos campos agregados al modal de edición.
+    *   JavaScript actualizado para pre-cargar `telefono` y `whatsapp_apikey` al abrir el modal.
+    *   POST handler de `update_client` incluye los nuevos campos en `$data_to_update`.
+
+4.  **Tabla de Clientes (`client_rows_partial.php`)** — Modificado:
+    *   Atributos `data-telefono` y `data-whatsapp_apikey` agregados al botón de editar para pasar datos al modal.
+
+### Archivos Afectados
+*   `/client_model.php` (Modificado — createClient, getClientById, getAllClients, searchClients)
+*   `/clients_ui.php` (Modificado — formularios crear/editar, handlers POST, JS modal)
+*   `/client_rows_partial.php` (Modificado — data-attributes para edición)
