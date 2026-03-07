@@ -17,18 +17,19 @@ if (!isset($_SESSION['user_id'])) {
     exit();
 }
 
-// Verificar permisos: Solo 'administrador' y 'editor' pueden gestionar pagos
-$can_manage_payments = ($_SESSION['rol'] === 'administrador' || $_SESSION['rol'] === 'editor');
+// Verificar permisos: Solo 'administrador', 'editor' y 'visor' pueden gestionar pagos
+$can_manage_payments = ($_SESSION['rol'] === 'administrador' || $_SESSION['rol'] === 'editor' || $_SESSION['rol'] === 'visor');
 if (!$can_manage_payments) {
     // Si no tiene permisos, redirigir a una página principal o de error
     header('Location: dashboard.php');
     exit();
 }
 
-require_once 'payment_model.php'; // Incluir el modelo de pagos
-require_once 'client_model.php';  // Incluir el modelo de clientes
-require_once 'audit_model.php';   // Incluir el modelo de auditoría
-require_once 'plan_model.php';    // Incluir el modelo de planes
+require_once 'payment_model.php';      // Incluir el modelo de pagos
+require_once 'client_model.php';       // Incluir el modelo de clientes
+require_once 'audit_model.php';        // Incluir el modelo de auditoría
+require_once 'plan_model.php';         // Incluir el modelo de planes
+require_once 'notificacion_model.php'; // Para envío de recibos digitales
 
 // Inicializar un array para mensajes de éxito o error
 $message = ['type' => '', 'text' => ''];
@@ -61,7 +62,7 @@ if (isset($_POST['action']) && $_POST['action'] === 'create_payment') {
 
             if (!empty($invoice_ids) && is_array($invoice_ids)) {
                 // MULTIPLE INVOICE LOGIC
-                $metodo_pago_id = (int)$_POST['metodo_pago']; // Usar ID directo del form
+                $metodo_pago_id = (int) $_POST['metodo_pago']; // Usar ID directo del form
                 $payments_created = 0;
                 $conn = connectDB(); // Open connection for validation
 
@@ -77,12 +78,14 @@ if (isset($_POST['action']) && $_POST['action'] === 'create_payment') {
                         $amount_to_pay = $inv_data['monto'];
 
                         // Create Payment
-                        $pid = createPayment($inv_id, (float) $amount_to_pay, $fecha_pago, 'exitoso', $metodo_pago_id, $referencia_pago, $descripcion);
+                        $pid = createPayment($inv_id, (float) $amount_to_pay, $fecha_pago, 'exitoso', $metodo_pago_id, $referencia_pago, $descripcion, null, $_SESSION['user_id'] ?? null);
                         if ($pid) {
                             updateInvoiceStatusBasedOnBalance($inv_id);
                             $payments_created++;
                             // Audit per payment
                             logAuditAction($_SESSION['user_id'] ?? null, 'Pago de Factura', 'pagos', $pid, null, "FacID: $inv_id, Monto: $amount_to_pay");
+                            // Recibo digital por WhatsApp
+                            sendPaymentReceipt((int)$pid, (int)$inv_id, (int)$cliente_id);
                         }
                     }
                     $stmt_v->close();
@@ -90,33 +93,39 @@ if (isset($_POST['action']) && $_POST['action'] === 'create_payment') {
                 closeDB($conn);
 
                 if ($payments_created > 0) {
-            $message = ['type' => 'success', 'text' => "Se registraron $payments_created pagos correctamente."];
+                    $message = ['type' => 'success', 'text' => "Se registraron $payments_created pagos correctamente."];
                 } else {
                     $message = ['type' => 'danger', 'text' => 'No se pudo procesar ningún pago. Verifique los datos.'];
                 }
             } else {
-                    // SINGLE / ADVANCE PAYMENT LOGIC (Fallback)
-                    $invoice = getOldestUnpaidInvoice($cliente_id);
+                // SINGLE / ADVANCE PAYMENT LOGIC (Fallback)
+                $invoice = getOldestUnpaidInvoice($cliente_id);
 
-                    if ($invoice) {
-                        // Usar ID directo
-                        $metodo_pago_id = (int)$_POST['metodo_pago'];
+                if ($invoice) {
+                    // Usar ID directo
+                    $metodo_pago_id = (int) $_POST['metodo_pago'];
 
-                    $new_payment_id = createPayment($invoice['id'], (float) $monto, $fecha_pago, 'exitoso', $metodo_pago_id, $referencia_pago, $descripcion);
+                    $new_payment_id = createPayment($invoice['id'], (float) $monto, $fecha_pago, 'exitoso', $metodo_pago_id, $referencia_pago, $descripcion, null, $_SESSION['user_id'] ?? null);
                     if ($new_payment_id) {
                         updateInvoiceStatusBasedOnBalance($invoice['id']);
+                        sendPaymentReceipt((int)$new_payment_id, (int)$invoice['id'], (int)$cliente_id);
                         $_SESSION['message'] = ['type' => 'success', 'text' => 'Pago registrado exitosamente (Modo Automático).'];
                         header('Location: payments_ui.php');
                         exit();
                     }
                 } else {
                     // Si no hay factura pendiente, intentamos crear un pago adelantado
-                    $metodo_pago_id = (int)$_POST['metodo_pago'];
+                    $metodo_pago_id = (int) $_POST['metodo_pago'];
                     $new_payment_id = createAdvanceInvoice($cliente_id, (float) $monto, $fecha_pago, $metodo_pago_id, $referencia_pago, $descripcion);
 
                     if ($new_payment_id) {
                         $userId = $_SESSION['user_id'] ?? null;
                         logAuditAction($userId, 'Pago Adelantado', 'pagos', $new_payment_id, null, "Monto: $monto, ClienteID: $cliente_id");
+                        // Recibo digital por WhatsApp (obtenemos factura_id desde el pago)
+                        $pago_adv = getPaymentById((int)$new_payment_id);
+                        if ($pago_adv) {
+                            sendPaymentReceipt((int)$new_payment_id, (int)$pago_adv['factura_id'], (int)$cliente_id);
+                        }
                         $_SESSION['message'] = ['type' => 'success', 'text' => 'Pago adelantado registrado exitosamente.'];
                         header('Location: payments_ui.php');
                         exit();
@@ -127,9 +136,9 @@ if (isset($_POST['action']) && $_POST['action'] === 'create_payment') {
             }
             // For multiple payments loop logic previously separate
             if (isset($payments_created) && $payments_created > 0) {
-                 $_SESSION['message'] = ['type' => 'success', 'text' => "Se registraron $payments_created pagos correctamente."];
-                 header('Location: payments_ui.php');
-                 exit();
+                $_SESSION['message'] = ['type' => 'success', 'text' => "Se registraron $payments_created pagos correctamente."];
+                header('Location: payments_ui.php');
+                exit();
             }
 
         } catch (Throwable $e) {
@@ -161,7 +170,7 @@ if (isset($_POST['action']) && $_POST['action'] === 'update_payment') {
         $update_data['fecha_pago'] = $fecha_temp;
     }
     if (isset($_POST['metodo_pago_edit'])) {
-        $update_data['metodo_pago_id'] = (int)$_POST['metodo_pago_edit'];
+        $update_data['metodo_pago_id'] = (int) $_POST['metodo_pago_edit'];
     }
     if (isset($_POST['referencia_pago_edit'])) {
         $update_data['referencia_pago'] = $_POST['referencia_pago_edit'];
@@ -172,7 +181,9 @@ if (isset($_POST['action']) && $_POST['action'] === 'update_payment') {
 
     if ($payment_id > 0 && !empty($update_data)) {
         $updated = updatePayment($payment_id, $update_data);
-        if ($updated) {
+        if ($updated === 'LOCKED') {
+            $message = ['type' => 'danger', 'text' => 'El pago #' . $payment_id . ' está bloqueado y no puede editarse. Solicite al administrador que lo desbloquee.'];
+        } elseif ($updated) {
             // AUDIT: Log payment update
             $userId = $_SESSION['user_id'] ?? null;
             logAuditAction($userId, 'Actualización de Pago', 'pagos', $payment_id, null, json_encode($update_data));
@@ -193,7 +204,9 @@ if (isset($_GET['action']) && $_GET['action'] === 'delete_payment' && isset($_GE
     $payment_id = (int) $_GET['id'];
     if ($payment_id > 0) {
         $deleted = deletePayment($payment_id);
-        if ($deleted) {
+        if ($deleted === 'LOCKED') {
+            $message = ['type' => 'danger', 'text' => 'El pago #' . $payment_id . ' está bloqueado y no puede eliminarse. Desbloquéelo primero desde la tabla de pagos.'];
+        } elseif ($deleted) {
             // AUDIT: Log payment deletion
             $userId = $_SESSION['user_id'] ?? null;
             logAuditAction($userId, 'Eliminación de Pago', 'pagos', $payment_id, "ID: $payment_id", null);
@@ -206,6 +219,28 @@ if (isset($_GET['action']) && $_GET['action'] === 'delete_payment' && isset($_GE
         }
     } else {
         $message = ['type' => 'warning', 'text' => 'ID de pago no válido para eliminar.'];
+    }
+}
+
+// Manejar el desbloqueo de un pago (solo administrador)
+if (isset($_POST['action']) && $_POST['action'] === 'unlock_payment') {
+    if ($_SESSION['rol'] !== 'administrador') {
+        $message = ['type' => 'danger', 'text' => 'No tiene permisos para desbloquear pagos.'];
+    } else {
+        $pago_id = (int)($_POST['payment_id'] ?? 0);
+        $motivo  = trim($_POST['motivo_desbloqueo'] ?? '');
+        if ($pago_id > 0 && !empty($motivo)) {
+            $ok = unlockPayment($pago_id, (int)$_SESSION['user_id'], $motivo);
+            if ($ok) {
+                $_SESSION['message'] = ['type' => 'success', 'text' => "Pago #$pago_id desbloqueado. Ahora puede editarlo o eliminarlo."];
+            } else {
+                $_SESSION['message'] = ['type' => 'danger', 'text' => "Error al desbloquear el pago #$pago_id. Puede que ya esté desbloqueado."];
+            }
+        } else {
+            $_SESSION['message'] = ['type' => 'warning', 'text' => 'Debe proporcionar un motivo para desbloquear el pago.'];
+        }
+        header('Location: payments_ui.php');
+        exit();
     }
 }
 
@@ -237,10 +272,13 @@ if (isset($_SESSION['message'])) {
 // Obtener el término de búsqueda si existe
 $search_term = $_GET['search_term'] ?? '';
 
+// Si es un "visor" y viene de visor_dashboard via GET client_id, podemos auto-seleccionar
+$selected_client_id_from_get = $_GET['client_id'] ?? '';
+
 // Obtener todos los clientes (Mantener para modal de edición por compatibilidad, aunque idealmente debería ser AJAX también)
 // El registro principal usará AJAX.
 $all_clients = getAllClients();
-$all_plans = getAllPlans(); 
+$all_plans = getAllPlans();
 $payment_methods = getAllPaymentMethods(); // Obtener métodos de pago dinámicos
 // error_log("Methods count: " . count($payment_methods)); // DEBUG
 
@@ -287,21 +325,33 @@ require_once 'header.php';
                     <div class="input-group">
                         <select class="form-control" id="cliente_id" name="cliente_id" required style="width: 100%;">
                             <option value="">Buscar cliente...</option>
-                            <!-- Options load via AJAX -->
+                            <?php
+                            if (!empty($selected_client_id_from_get)) {
+                                $preselected_client = getClientById((int) $selected_client_id_from_get);
+                                if ($preselected_client) {
+                                    $plan_badge = isset($preselected_client['nombre_plan']) ? ' - Plan: ' . $preselected_client['nombre_plan'] : '';
+                                    $display_text = htmlspecialchars($preselected_client['nombre'] . ' ' . $preselected_client['apellido'] . ' - DNI: ' . $preselected_client['dni'] . $plan_badge);
+                                    echo '<option value="' . (int) $preselected_client['id'] . '" selected="selected">' . $display_text . '</option>';
+                                }
+                            }
+                            ?>
                         </select>
                         <button class="btn btn-outline-warning" type="button" id="btn-assign-plan" style="display:none;"
                             data-bs-toggle="modal" data-bs-target="#assignPlanModal">
                             <i class="fas fa-edit"></i> Asignar Plan
                         </button>
                     </div>
-                    
+
                     <!-- Selector de Plan para Clientes Nuevos/Sin Plan -->
-                    <div id="plan-selection-container" class="mt-2 p-2 border border-warning rounded" style="display:none; background-color: #fff3cd;">
-                        <label for="new_plan_id" class="form-label text-dark fw-bold mb-1"><i class="fas fa-exclamation-circle"></i> Cliente sin Plan - Seleccione uno:</label>
+                    <div id="plan-selection-container" class="mt-2 p-2 border border-warning rounded"
+                        style="display:none; background-color: #fff3cd;">
+                        <label for="new_plan_id" class="form-label text-dark fw-bold mb-1"><i
+                                class="fas fa-exclamation-circle"></i> Cliente sin Plan - Seleccione uno:</label>
                         <select class="form-control form-control-sm border-warning" id="new_plan_id" name="new_plan_id">
                             <option value="">-- Seleccione Plan --</option>
                             <?php foreach ($all_plans as $plan): ?>
-                                <option value="<?php echo $plan['id']; ?>" data-price="<?php echo $plan['precio_mensual']; ?>">
+                                <option value="<?php echo $plan['id']; ?>"
+                                    data-price="<?php echo $plan['precio_mensual']; ?>">
                                     <?php echo htmlspecialchars($plan['nombre_plan']) . ' - $' . number_format($plan['precio_mensual'], 2); ?>
                                 </option>
                             <?php endforeach; ?>
@@ -387,41 +437,72 @@ require_once 'header.php';
                             <th>Fecha Pago</th>
                             <th>Método</th>
                             <th>Referencia</th>
-                            <th>Descripción</th>
-                            <th>Fecha Registro</th>
+                            <th>Cobrador</th>
+                            <th>Estado</th>
                             <th>Acciones</th>
                         </tr>
                     </thead>
                     <tbody>
                         <?php foreach ($payments as $payment): ?>
-                            <tr>
+                            <?php $bloqueado = (int)($payment['bloqueado'] ?? 1); ?>
+                            <tr class="<?php echo $bloqueado ? 'table-light' : 'table-warning'; ?>">
                                 <td><?php echo htmlspecialchars($payment['id']); ?></td>
                                 <td><?php echo htmlspecialchars($payment['nombre'] . ' ' . $payment['apellido']); ?></td>
-                                <td>$<?php echo number_format(htmlspecialchars($payment['monto']), 2, ',', '.'); ?></td>
+                                <td>$<?php echo number_format((float)$payment['monto'], 2, ',', '.'); ?></td>
                                 <td><?php echo htmlspecialchars($payment['fecha_pago']); ?></td>
                                 <td><?php echo htmlspecialchars($payment['metodo_pago_nombre'] ?? 'N/A'); ?></td>
-                                <td><?php echo htmlspecialchars($payment['referencia_pago'] ?? 'N/A'); ?></td>
-                                <td><?php echo htmlspecialchars($payment['descripcion'] ?? 'N/A'); ?></td>
-                                <td><?php echo htmlspecialchars($payment['fecha_registro']); ?></td>
+                                <td><?php echo htmlspecialchars($payment['referencia_pago'] ?? '-'); ?></td>
+                                <td><?php echo htmlspecialchars($payment['registrado_por_nombre'] ?? '-'); ?></td>
                                 <td>
-                                    <button type="button" class="btn btn-info btn-sm rounded-pill" data-bs-toggle="modal"
-                                        data-bs-target="#editPaymentModal"
-                                        data-id="<?php echo htmlspecialchars($payment['id']); ?>"
-                                        data-cliente_id="<?php echo htmlspecialchars($payment['cliente_id']); ?>"
-                                        data-monto="<?php echo htmlspecialchars($payment['monto']); ?>"
-                                        data-fecha_pago="<?php echo htmlspecialchars($payment['fecha_pago']); ?>"
-                                        data-metodo_pago="<?php echo htmlspecialchars($payment['metodo_pago_id']); ?>"
-                                        data-referencia_pago="<?php echo htmlspecialchars($payment['referencia_pago']); ?>"
-                                        data-descripcion="<?php echo htmlspecialchars($payment['descripcion']); ?>">
-                                        <i class="fas fa-edit"></i> Editar
-                                    </button>
-                                    <?php if ($_SESSION['rol'] === 'administrador'): ?>
-                                        <a href="payments_ui.php?action=delete_payment&id=<?php echo htmlspecialchars($payment['id']); ?>"
-                                            class="btn btn-danger btn-sm rounded-pill"
-                                            onclick="return confirm('¿Estás seguro de que quieres eliminar este pago? Esta acción es irreversible.');">
-                                            <i class="fas fa-trash-alt"></i> Eliminar
-                                        </a>
+                                    <?php if ($bloqueado): ?>
+                                        <span class="badge bg-warning text-dark"><i class="fas fa-lock"></i> Bloqueado</span>
+                                    <?php else: ?>
+                                        <span class="badge bg-success"><i class="fas fa-lock-open"></i> Libre</span>
                                     <?php endif; ?>
+                                </td>
+                                <td>
+                                    <?php if ($bloqueado): ?>
+                                        <?php if ($_SESSION['rol'] === 'administrador'): ?>
+                                            <button type="button" class="btn btn-outline-warning btn-sm"
+                                                data-bs-toggle="modal" data-bs-target="#unlockPaymentModal"
+                                                data-id="<?php echo $payment['id']; ?>"
+                                                data-cliente="<?php echo htmlspecialchars($payment['nombre'] . ' ' . $payment['apellido']); ?>"
+                                                data-monto="<?php echo number_format((float)$payment['monto'], 2); ?>">
+                                                <i class="fas fa-unlock-alt"></i> Desbloquear
+                                            </button>
+                                        <?php else: ?>
+                                            <span class="text-muted small"><i class="fas fa-lock"></i> Sin acceso</span>
+                                        <?php endif; ?>
+                                    <?php else: ?>
+                                        <?php if ($_SESSION['rol'] === 'administrador' || $_SESSION['rol'] === 'editor'): ?>
+                                            <button type="button" class="btn btn-info btn-sm rounded-pill" data-bs-toggle="modal"
+                                                data-bs-target="#editPaymentModal"
+                                                data-id="<?php echo htmlspecialchars($payment['id']); ?>"
+                                                data-cliente_id="<?php echo htmlspecialchars($payment['cliente_id']); ?>"
+                                                data-monto="<?php echo htmlspecialchars($payment['monto']); ?>"
+                                                data-fecha_pago="<?php echo htmlspecialchars($payment['fecha_pago']); ?>"
+                                                data-metodo_pago="<?php echo htmlspecialchars($payment['metodo_pago_id']); ?>"
+                                                data-referencia_pago="<?php echo htmlspecialchars($payment['referencia_pago'] ?? ''); ?>"
+                                                data-descripcion="<?php echo htmlspecialchars($payment['descripcion'] ?? ''); ?>">
+                                                <i class="fas fa-edit"></i> Editar
+                                            </button>
+                                        <?php endif; ?>
+                                        <?php if ($_SESSION['rol'] === 'administrador'): ?>
+                                            <a href="payments_ui.php?action=delete_payment&id=<?php echo htmlspecialchars($payment['id']); ?>"
+                                                class="btn btn-danger btn-sm rounded-pill"
+                                                onclick="return confirm('¿Eliminar pago #<?php echo $payment['id']; ?>? Esta acción es irreversible.');">
+                                                <i class="fas fa-trash-alt"></i> Eliminar
+                                            </a>
+                                        <?php endif; ?>
+                                    <?php endif; ?>
+                                    <?php
+                                    $token_pdf = hash_hmac('sha256', "recibo-{$payment['id']}", $_ENV['APP_SECRET'] ?? 'cable_santana_secret');
+                                    ?>
+                                    <a href="recibo_pdf.php?pago_id=<?= $payment['id'] ?>&token=<?= $token_pdf ?>"
+                                       class="btn btn-outline-danger btn-sm rounded-pill mt-1"
+                                       target="_blank" title="Ver e imprimir recibo PDF">
+                                        <i class="fas fa-file-pdf"></i> PDF
+                                    </a>
                                 </td>
                             </tr>
                         <?php endforeach; ?>
@@ -494,7 +575,8 @@ require_once 'header.php';
                         <select class="form-control" id="edit_metodo_pago" name="metodo_pago_edit" required>
                             <option value="">Seleccione un método</option>
                             <?php foreach ($payment_methods as $pm): ?>
-                                <option value="<?php echo $pm['id']; ?>"><?php echo htmlspecialchars($pm['nombre']); ?></option>
+                                <option value="<?php echo $pm['id']; ?>"><?php echo htmlspecialchars($pm['nombre']); ?>
+                                </option>
                             <?php endforeach; ?>
                         </select>
                     </div>
@@ -511,6 +593,46 @@ require_once 'header.php';
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary rounded-pill" data-bs-dismiss="modal">Cerrar</button>
                     <button type="submit" class="btn btn-primary rounded-pill">Guardar Cambios</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Modal para Desbloquear Pago (solo administrador) -->
+<div class="modal fade" id="unlockPaymentModal" tabindex="-1" aria-labelledby="unlockPaymentModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-warning text-dark">
+                <h5 class="modal-title" id="unlockPaymentModalLabel">
+                    <i class="fas fa-unlock-alt"></i> Desbloquear Pago
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form action="payments_ui.php" method="POST">
+                <div class="modal-body">
+                    <input type="hidden" name="action" value="unlock_payment">
+                    <input type="hidden" name="payment_id" id="unlock_payment_id">
+                    <p class="mb-1"><strong>Pago #:</strong> <span id="unlock_pago_num"></span></p>
+                    <p class="mb-3"><strong>Cliente:</strong> <span id="unlock_cliente"></span> &mdash; <strong>Monto:</strong> $<span id="unlock_monto"></span></p>
+                    <div class="alert alert-warning">
+                        <i class="fas fa-exclamation-triangle"></i>
+                        Al desbloquear, el pago podrá ser <strong>editado o eliminado</strong>. Esta acción queda registrada en el Log de Auditoría con tu usuario, hora e IP.
+                    </div>
+                    <div class="mb-3">
+                        <label for="motivo_desbloqueo" class="form-label fw-bold">
+                            Motivo del desbloqueo: <span class="text-danger">*</span>
+                        </label>
+                        <textarea class="form-control" id="motivo_desbloqueo" name="motivo_desbloqueo"
+                                  rows="3" required
+                                  placeholder="Ej: Error de monto ingresado por el cobrador. Se corregirá a $XXX.XX"></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-warning">
+                        <i class="fas fa-unlock-alt"></i> Confirmar Desbloqueo
+                    </button>
                 </div>
             </form>
         </div>
@@ -586,6 +708,7 @@ require_once 'header.php';
             templateSelection: formatClientSelection
         });
 
+
         function formatClientResult(client) {
             if (!client.id) {
                 return client.text;
@@ -618,6 +741,17 @@ require_once 'header.php';
             dropdownParent: $('#editPaymentModal')
         });
 
+        // Forzar Autofocus en ambos selectores al abrirlos (mejora para Mobile)
+        $('#cliente_id, #edit_cliente_id').on('select2:open', function () {
+            // Un pequeño retardo para asegurar que el DOM del input ya fue inyectado por Select2
+            setTimeout(function () {
+                var searchField = document.querySelector('.select2-search__field');
+                if (searchField) {
+                    searchField.focus();
+                }
+            }, 100);
+        });
+
         // Script para actualizar el monto y verificar estado de deuda al seleccionar un cliente
         $('#cliente_id').on('change', function () {
             const clienteId = $(this).val();
@@ -643,25 +777,25 @@ require_once 'header.php';
 
             if (hasPlan) {
                 $('#client-plan-info').text('Plan: ' + data.plan_nombre).removeClass('bg-warning text-dark').addClass('bg-secondary text-white').show();
-                
+
                 // Ocultar selector de nuevo plan si ya tiene uno
                 $('#plan-selection-container').slideUp();
                 $('#new_plan_id').prop('required', false).val('');
-                
+
             } else if (clienteId) {
                 // No Plan Assigned
                 $('#client-plan-info').text('⚠️ SIN PLAN').removeClass('bg-secondary text-white').addClass('bg-warning text-dark').show();
-                
+
                 // Mostrar selector de planes integrado
                 $('#plan-selection-container').slideDown();
                 $('#btn-assign-plan').hide(); // Ocultamos el botón antiguo del modal ya que usamos el selector integrado
-                
+
                 // Hacer requerido el plan
                 $('#new_plan_id').prop('required', true);
 
                 // No deshabilitamos el botón de pago, permitimos flujo: Seleccionar Plan -> Pagar
                 $('button[type="submit"]').prop('disabled', false);
-                
+
                 // Limpiar monto para forzar selección
                 $('#monto').val('');
             }
@@ -723,16 +857,26 @@ require_once 'header.php';
 
                     } else {
                         invoicesContainer.hide();
-                        $('#monto').val(''); // Reset if no debts (will be set by 'al_dia' logic below if needed)
+                        // Reset if no debts
+                        $('#monto').val('');
                         $('#monto').prop('readonly', false);
                     }
 
                     // Set suggested amount (Fallback if no invoices logic or for advance payment)
                     if (response.status === 'al_dia') {
                         $('#monto').val(parseFloat(response.amount).toFixed(2));
-                        $('#monto').prop('readonly', false); // Allow edit for advance payments
+                        $('#monto').prop('readonly', true); // No dejar editar para evitar recargos
+                        
+                        if (response.invoice_count === 0 && response.overdue_count === 0) {
+                             $('button[type="submit"]').prop('disabled', true); // Evitar cobrar duplicado
+                             statusMessage.removeClass('alert-info alert-danger alert-warning alert-success')
+                                .addClass('alert-success')
+                                .html(`<i class="fas fa-check-circle me-1"></i> Cliente AL DÍA. No tiene facturas pendientes por cobrar.`)
+                                .slideDown();
+                             return; // Stop here, no more alerts needed
+                        }
                     } else if (response.invoice_count > 0) {
-                        // Recalculate based on checkboxes (logic below)
+                        $('button[type="submit"]').prop('disabled', false);
                     }
 
                     // Handle Invoice Checkbox Toggle
@@ -764,7 +908,7 @@ require_once 'header.php';
                     // Handle BLOCKED state (Service Cutoff)
                     if (response.blocked === true) {
                         // formElements.prop('disabled', true); // Do NOT disable form, allow payment to restore service!
-                        
+
                         statusMessage.removeClass('alert-info alert-danger alert-warning alert-success')
                             .addClass('alert-danger')
                             .html(`<i class="fas fa-ban me-1"></i> ${response.message}`)
@@ -793,6 +937,12 @@ require_once 'header.php';
                 }
             });
         });
+
+        // La pre-selección de visor flow ahora se inyecta directamente vía PHP en el HTML del <select> para mayor confiabilidad.
+        // Si el select ya viene con una opción, forzamos que se dispare el evento change para que cargue la deuda
+        if ($('#cliente_id').val() !== "") {
+            $('#cliente_id').trigger('change');
+        }
 
         // Lógica para Generar QR
         $('#btn-generate-qr').on('click', function () {
@@ -841,7 +991,7 @@ require_once 'header.php';
         });
 
         // Listener para cambio de plan en el selector integrado
-        $('#new_plan_id').on('change', function() {
+        $('#new_plan_id').on('change', function () {
             var selectedOption = $(this).find(':selected');
             var price = selectedOption.data('price');
             if (price) {
@@ -859,6 +1009,16 @@ require_once 'header.php';
             if (editModal) {
                 // Listener if needed
             }
+        });
+
+        // Modal de Desbloqueo: poblar con datos del pago seleccionado
+        $('#unlockPaymentModal').on('show.bs.modal', function (event) {
+            var button = $(event.relatedTarget);
+            $('#unlock_payment_id').val(button.data('id'));
+            $('#unlock_pago_num').text(button.data('id'));
+            $('#unlock_cliente').text(button.data('cliente'));
+            $('#unlock_monto').text(button.data('monto'));
+            $('#motivo_desbloqueo').val('');
         });
 
         // Reverting to jQuery for modal event to properly fetch .data()

@@ -14,7 +14,7 @@ if (!isset($_SESSION['user_id'])) {
 }
 
 // Verificar roles permitidos
-$allowed_roles = ['administrador', 'editor'];
+$allowed_roles = ['administrador', 'editor', 'visor'];
 if (!in_array($_SESSION['rol'], $allowed_roles)) {
     header('Location: dashboard.php');
     exit();
@@ -68,8 +68,8 @@ require_once 'header.php';
                 </form>
 
                 <div class="table-responsive">
-                    <table class="table table-bordered table-hover align-middle" id="dataTableReact" width="100%"
-                        cellspacing="0">
+                    <table class="table table-bordered table-hover align-middle dt-responsive nowrap"
+                        id="dataTableReact" width="100%" cellspacing="0">
                         <thead class="table-secondary">
                             <tr>
                                 <th>Cliente</th>
@@ -127,8 +127,10 @@ require_once 'header.php';
                                             </div>
                                         </td>
                                         <td class="text-center">
-                                            <form action="process_reactivacion.php" method="POST" onsubmit="return confirm('¿Está seguro de REACTIVAR este servicio? Se generarán los pagos correspondientes y el recargo.');">
-                                                <input type="hidden" name="cliente_id" value="<?php echo $client['cliente_id']; ?>">
+                                            <form action="process_reactivacion.php" method="POST"
+                                                onsubmit="return confirm('¿Está seguro de REACTIVAR este servicio? Se generarán los pagos correspondientes y el recargo.');">
+                                                <input type="hidden" name="cliente_id"
+                                                    value="<?php echo $client['cliente_id']; ?>">
                                                 <button type="submit" class="btn btn-outline-danger btn-sm">
                                                     <i class="fas fa-plug me-1"></i> Reactivar
                                                 </button>
@@ -146,3 +148,15 @@ require_once 'header.php';
 </div>
 
 <?php require_once 'footer.php'; ?>
+<script>
+    $(document).ready(function () {
+        if ($.fn.DataTable) {
+            $('#dataTableReact').DataTable({
+                language: {
+                    url: '//cdn.datatables.net/plug-ins/1.13.4/i18n/es-ES.json'
+                },
+                responsive: true
+            });
+        }
+    });
+</script>

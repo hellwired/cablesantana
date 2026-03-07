@@ -33,11 +33,17 @@ if (isset($_POST['action']) && $_POST['action'] === 'create_user') {
     $rol = $_POST['rol'] ?? '';
 
     if (!empty($nombre_usuario) && !empty($contrasena) && !empty($rol)) {
-        $new_user_id = createUser($nombre_usuario, $contrasena, $rol, $email, null); // Pass null for cliente_id
-        if ($new_user_id) {
-            $message = ['type' => 'success', 'text' => 'Usuario "' . htmlspecialchars($nombre_usuario) . '" creado exitosamente con ID: ' . $new_user_id . '.'];
-        } else {
-            $message = ['type' => 'danger', 'text' => 'Error al crear el usuario. El nombre de usuario o email podrían ya existir.'];
+        $cliente_id_create = (!empty($_POST['cliente_id'])) ? (int) $_POST['cliente_id'] : null;
+        try {
+            $new_user_id = createUser($nombre_usuario, $contrasena, $rol, $email, $cliente_id_create);
+            if ($new_user_id) {
+                $message = ['type' => 'success', 'text' => 'Usuario "' . htmlspecialchars($nombre_usuario) . '" creado exitosamente con ID: ' . $new_user_id . '.'];
+            } else {
+                $message = ['type' => 'danger', 'text' => 'Error al crear el usuario. El nombre de usuario o email podrían ya existir.'];
+            }
+        } catch (\Throwable $e) {
+            $error_trace = $e->getMessage() . " en " . basename($e->getFile()) . ":" . $e->getLine();
+            $message = ['type' => 'danger', 'text' => 'EXCEPCIÓN CRÍTICA SERVER: ' . htmlspecialchars($error_trace)];
         }
     } else {
         $message = ['type' => 'warning', 'text' => 'Todos los campos obligatorios (Nombre de Usuario, Contraseña, Rol) son necesarios para crear un usuario.'];
@@ -151,6 +157,13 @@ require_once 'header.php';
                         </select>
                     </div>
                 </div>
+                <div class="form-row">
+                    <div class="form-group col-md-12">
+                        <label for="cliente_id">ID de Cliente Asociado (Opcional):</label>
+                        <input type="number" class="form-control" id="cliente_id" name="cliente_id"
+                            placeholder="Vincular con el ID de un Cliente (Si aplica)">
+                    </div>
+                </div>
                 <button type="submit" class="btn btn-primary btn-block">Crear Usuario</button>
             </form>
         </div>
@@ -199,7 +212,7 @@ require_once 'header.php';
                                             data-target="#editUserModal" data-id="<?php echo $user['id']; ?>"
                                             data-nombre_usuario="<?php echo htmlspecialchars($user['nombre_usuario']); ?>"
                                             data-cliente_id="<?php echo htmlspecialchars($user['cliente_id'] ?? ''); ?>"
-                                            data-email="<?php echo htmlspecialchars($user['email']); ?>"
+                                            data-email="<?php echo htmlspecialchars($user['email'] ?? ''); ?>"
                                             data-rol="<?php echo htmlspecialchars($user['rol']); ?>"
                                             data-activo="<?php echo $user['activo'] ? '1' : '0'; ?>">
                                             <i class="fas fa-edit"></i> Editar
@@ -248,7 +261,7 @@ require_once 'header.php';
                     </div>
                     <div class="mb-3">
                         <label for="edit_rol" class="form-label">Rol:</label>
-                        <select class="form-select" id="edit_rol" name="rol_edit" required>
+                        <select class="form-control" id="edit_rol" name="rol_edit" required>
                             <option value="administrador">Administrador</option>
                             <option value="editor">Editor</option>
                             <option value="visor">Visor</option>

@@ -15,7 +15,7 @@ if (!isset($_SESSION['user_id'])) {
 }
 
 // Verificar roles permitidos
-$allowed_roles = ['administrador', 'editor'];
+$allowed_roles = ['administrador', 'editor', 'visor'];
 if (!in_array($_SESSION['rol'], $allowed_roles)) {
     header('Location: dashboard.php');
     exit();
@@ -48,7 +48,8 @@ require_once 'header.php';
                     </div>
                 <?php else: ?>
                     <div class="table-responsive">
-                        <table class="table table-bordered table-striped" id="dataTableCortes" width="100%" cellspacing="0">
+                        <table class="table table-bordered table-striped dt-responsive nowrap" id="dataTableCortes"
+                            width="100%" cellspacing="0">
                             <thead class="table-dark">
                                 <tr>
                                     <th>Cliente</th>
@@ -118,7 +119,8 @@ require_once 'header.php';
                 language: {
                     url: '//cdn.datatables.net/plug-ins/1.13.4/i18n/es-ES.json'
                 },
-                order: [[3, "desc"]] // Ordenar por meses de deuda descendente
+                order: [[3, "desc"]], // Ordenar por meses de deuda descendente
+                responsive: true
             });
         }
     });

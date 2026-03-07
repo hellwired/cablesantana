@@ -63,21 +63,21 @@ function getAllPaymentMethods() {
  * @param string|null $gateway_transaccion_id ID de la transacción en la pasarela de pago.
  * @return int|false El ID del pago insertado si es exitoso, o false en caso de error.
  */
-function createPayment($factura_id, $monto, $fecha_pago, $estado, $metodo_pago_id, $referencia_pago = null, $descripcion = null, $gateway_transaccion_id = null)
+function createPayment($factura_id, $monto, $fecha_pago, $estado, $metodo_pago_id, $referencia_pago = null, $descripcion = null, $gateway_transaccion_id = null, $registrado_por = null)
 {
     $conn = connectDB();
     if (!$conn) {
         return false;
     }
 
-    $stmt = $conn->prepare("INSERT INTO pagos (factura_id, monto, fecha_pago, estado, metodo_pago_id, referencia_pago, descripcion, gateway_transaccion_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
+    $stmt = $conn->prepare("INSERT INTO pagos (factura_id, monto, fecha_pago, estado, metodo_pago_id, referencia_pago, descripcion, gateway_transaccion_id, bloqueado, registrado_por) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, ?)");
     if (!$stmt) {
         error_log("Error al preparar la consulta de inserción de pago: " . $conn->error);
         closeDB($conn);
         return false;
     }
 
-    $stmt->bind_param("idssisss", $factura_id, $monto, $fecha_pago, $estado, $metodo_pago_id, $referencia_pago, $descripcion, $gateway_transaccion_id);
+    $stmt->bind_param("idssisssi", $factura_id, $monto, $fecha_pago, $estado, $metodo_pago_id, $referencia_pago, $descripcion, $gateway_transaccion_id, $registrado_por);
 
     if ($stmt->execute()) {
         $last_id = $stmt->insert_id;
@@ -144,11 +144,13 @@ function getAllPayments($search_term = '')
 
 
     // Include payment method name and client id
-    $sql = "SELECT p.*, c.nombre, c.apellido, mp.nombre as metodo_pago_nombre, f.cliente_id 
-            FROM pagos p 
-            JOIN facturas f ON p.factura_id = f.id 
+    $sql = "SELECT p.*, c.nombre, c.apellido, mp.nombre as metodo_pago_nombre, f.cliente_id,
+                   u.nombre_usuario AS registrado_por_nombre
+            FROM pagos p
+            JOIN facturas f ON p.factura_id = f.id
             JOIN clientes c ON f.cliente_id = c.id
-            LEFT JOIN metodos_pago mp ON p.metodo_pago_id = mp.id";
+            LEFT JOIN metodos_pago mp ON p.metodo_pago_id = mp.id
+            LEFT JOIN usuarios u ON p.registrado_por = u.id";
 
     if (!empty($search_term)) {
         $search_param = "%" . $search_term . "%";
@@ -246,6 +248,21 @@ function updatePayment($id, $data)
         return false;
     }
 
+    // Guardia de bloqueo: no permitir edición de pagos bloqueados
+    $check = $conn->prepare("SELECT bloqueado FROM pagos WHERE id = ?");
+    if ($check) {
+        $check->bind_param("i", $id);
+        $check->execute();
+        $row = $check->get_result()->fetch_assoc();
+        $check->close();
+        if (!$row) { closeDB($conn); return false; }
+        if ((int)$row['bloqueado'] === 1) {
+            error_log("Intento de edición en pago bloqueado ID=$id");
+            closeDB($conn);
+            return 'LOCKED';
+        }
+    }
+
     $set_clauses = [];
     $params = [];
     $types = '';
@@ -306,6 +323,21 @@ function deletePayment($id)
         return false;
     }
 
+    // Guardia de bloqueo: no permitir eliminación de pagos bloqueados
+    $check = $conn->prepare("SELECT bloqueado FROM pagos WHERE id = ?");
+    if ($check) {
+        $check->bind_param("i", $id);
+        $check->execute();
+        $row = $check->get_result()->fetch_assoc();
+        $check->close();
+        if (!$row) { closeDB($conn); return false; }
+        if ((int)$row['bloqueado'] === 1) {
+            error_log("Intento de eliminación de pago bloqueado ID=$id");
+            closeDB($conn);
+            return 'LOCKED';
+        }
+    }
+
     $stmt = $conn->prepare("DELETE FROM pagos WHERE id = ?");
     if (!$stmt) {
         error_log("Error al preparar la consulta de eliminación de pago: " . $conn->error);
@@ -326,6 +358,125 @@ function deletePayment($id)
         closeDB($conn);
         return false;
     }
+}
+
+/**
+ * Desbloquea un pago para permitir su edición o eliminación.
+ * Solo debe llamarse con usuario autenticado de rol 'administrador'.
+ * Registra en auditoría quién, cuándo y por qué se desbloqueó.
+ *
+ * @param int    $pago_id    ID del pago a desbloquear.
+ * @param int    $admin_id   ID del administrador que autoriza el desbloqueo.
+ * @param string $motivo     Motivo obligatorio del desbloqueo.
+ * @return bool True si se desbloqueó correctamente, false en caso de error.
+ */
+function unlockPayment(int $pago_id, int $admin_id, string $motivo): bool
+{
+    $conn = connectDB();
+    if (!$conn) return false;
+
+    // Capturar estado anterior para auditoría
+    $stmt_sel = $conn->prepare("SELECT bloqueado, monto, factura_id FROM pagos WHERE id = ?");
+    if (!$stmt_sel) { closeDB($conn); return false; }
+    $stmt_sel->bind_param("i", $pago_id);
+    $stmt_sel->execute();
+    $res = $stmt_sel->get_result();
+    if ($res->num_rows === 0) { $stmt_sel->close(); closeDB($conn); return false; }
+    $pago_anterior = $res->fetch_assoc();
+    $stmt_sel->close();
+
+    if ((int)$pago_anterior['bloqueado'] !== 1) {
+        closeDB($conn);
+        return false; // Ya estaba desbloqueado
+    }
+
+    $fecha_now = date('Y-m-d H:i:s');
+    $stmt = $conn->prepare(
+        "UPDATE pagos SET bloqueado = 0, motivo_desbloqueo = ?, desbloqueado_por = ?, fecha_desbloqueo = ?
+         WHERE id = ? AND bloqueado = 1"
+    );
+    if (!$stmt) { closeDB($conn); return false; }
+    $stmt->bind_param("sisi", $motivo, $admin_id, $fecha_now, $pago_id);
+
+    if ($stmt->execute() && $stmt->affected_rows > 0) {
+        $stmt->close();
+        logAuditAction(
+            $admin_id,
+            'Desbloqueo de Pago',
+            'pagos',
+            $pago_id,
+            json_encode(['bloqueado' => 1]),
+            json_encode(['bloqueado' => 0, 'motivo' => $motivo, 'desbloqueado_por' => $admin_id, 'fecha' => $fecha_now])
+        );
+        closeDB($conn);
+        return true;
+    }
+
+    $stmt->close();
+    closeDB($conn);
+    return false;
+}
+
+/**
+ * Vuelve a bloquear un pago después de que fue editado.
+ *
+ * @param int $pago_id ID del pago a bloquear.
+ * @return bool True si se bloqueó correctamente.
+ */
+function lockPayment(int $pago_id): bool
+{
+    $conn = connectDB();
+    if (!$conn) return false;
+    $stmt = $conn->prepare("UPDATE pagos SET bloqueado = 1 WHERE id = ?");
+    if (!$stmt) { closeDB($conn); return false; }
+    $stmt->bind_param("i", $pago_id);
+    $result = $stmt->execute() && $stmt->affected_rows > 0;
+    $stmt->close();
+    closeDB($conn);
+    return $result;
+}
+
+/**
+ * Obtiene una factura con todos sus detalles: datos del cliente, plan y suscripción.
+ * Función utilizada por pagar.php, confirmar_pago.php y demo_flow.php.
+ *
+ * @param int $invoice_id El ID de la factura.
+ * @return array|null Array con datos de factura + cliente + plan, o null si no existe.
+ */
+function getInvoiceWithDetailsById(int $invoice_id): ?array
+{
+    $conn = connectDB();
+    if (!$conn) return null;
+
+    $stmt = $conn->prepare(
+        "SELECT f.id, f.suscripcion_id, f.cliente_id, f.monto, f.fecha_emision,
+                f.fecha_vencimiento, f.estado,
+                c.nombre, c.apellido, c.dni, c.telefono, c.whatsapp_apikey, c.correo_electronico,
+                p.nombre_plan, p.precio_mensual
+         FROM facturas f
+         JOIN clientes c ON f.cliente_id = c.id
+         JOIN suscripciones s ON f.suscripcion_id = s.id
+         JOIN planes p ON s.plan_id = p.id
+         WHERE f.id = ?"
+    );
+    if (!$stmt) {
+        error_log("Error preparando getInvoiceWithDetailsById: " . $conn->error);
+        closeDB($conn);
+        return null;
+    }
+
+    $stmt->bind_param("i", $invoice_id);
+    $stmt->execute();
+    $result = $stmt->get_result();
+
+    $invoice = null;
+    if ($result->num_rows > 0) {
+        $invoice = $result->fetch_assoc();
+    }
+
+    $stmt->close();
+    closeDB($conn);
+    return $invoice;
 }
 
 // --- Funciones CRUD para la tabla 'deudas' ---

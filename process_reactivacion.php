@@ -15,6 +15,13 @@ if (!isset($_SESSION['user_id'])) {
     exit();
 }
 
+// Verificar roles permitidos (visor también puede reactivar en campo)
+$allowed_roles = ['administrador', 'editor', 'visor'];
+if (!in_array($_SESSION['rol'], $allowed_roles)) {
+    header('Location: dashboard.php');
+    exit();
+}
+
 require_once 'db_connection.php';
 require_once 'reactivacion_model.php';
 require_once 'audit_model.php'; // Para registrar la acción

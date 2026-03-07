@@ -26,11 +26,10 @@ define('DB_USERNAME', $_ENV['DB_USERNAME'] ?? 'root');
 define('DB_PASSWORD', $_ENV['DB_PASSWORD'] ?? 'Admin001');
 define('DB_NAME', $_ENV['DB_NAME'] ?? 'cable_santana');
 
-/**
- * Función para establecer la conexión a la base de datos.
- *
- * @return mysqli|false Objeto de conexión MySQLi si es exitoso, false en caso de error.
- */
+// PHP 8.1+ cambió el default de MySQLi a lanzar excepciones.
+// El código usa el patrón if (!$stmt) por lo que necesitamos OFF.
+mysqli_report(MYSQLI_REPORT_OFF);
+
 /**
  * Función para establecer la conexión a la base de datos (Singleton).
  *

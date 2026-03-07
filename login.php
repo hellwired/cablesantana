@@ -23,6 +23,8 @@ $login_message = ['type' => '', 'text' => ''];
 if (isset($_SESSION['user_id']) && isset($_SESSION['rol'])) {
     if ($_SESSION['rol'] === 'administrador') {
         header('Location: dashboard.php'); // Redirigir a la página de gestión de usuarios
+    } elseif ($_SESSION['rol'] === 'visor') {
+        header('Location: visor_dashboard.php'); // Redirigir al dashboard móvil del visor
     } else {
         header('Location: dashboard.php'); // Redirigir a la página principal para otros roles
     }
@@ -53,6 +55,8 @@ if (isset($_POST['login'])) {
                 header('Location: dashboard.php');
             } elseif ($user['rol'] === 'editor') {
                 header('Location: payments_ui.php');
+            } elseif ($user['rol'] === 'visor') {
+                header('Location: visor_dashboard.php');
             } elseif ($user['rol'] === 'cliente') {
                 header('Location: client_dashboard.php');
             } else {
@@ -69,6 +73,7 @@ if (isset($_POST['login'])) {
 ?>
 <!DOCTYPE html>
 <html lang="es">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
@@ -84,35 +89,43 @@ if (isset($_POST['login'])) {
             align-items: center;
             min-height: 100vh;
         }
+
         .login-container {
             background-color: #ffffff;
             padding: 40px;
             border-radius: 15px;
-            box-shadow: 0 8px 16px rgba(0,0,0,0.1);
+            box-shadow: 0 8px 16px rgba(0, 0, 0, 0.1);
             width: 100%;
             max-width: 400px;
         }
+
         h1 {
             color: #343a40;
             margin-bottom: 30px;
             text-align: center;
         }
-        .form-control, .btn {
+
+        .form-control,
+        .btn {
             border-radius: 8px;
         }
+
         .btn-primary {
             background-color: #007bff;
             border-color: #007bff;
         }
+
         .btn-primary:hover {
             background-color: #0056b3;
             border-color: #0056b3;
         }
+
         .alert {
             border-radius: 8px;
         }
     </style>
 </head>
+
 <body>
 
     <div class="login-container">
@@ -145,4 +158,5 @@ if (isset($_POST['login'])) {
     <script src="https://cdn.jsdelivr.net/npm/popper.js@1.16.1/dist/umd/popper.min.js"></script>
     <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
 </body>
+
 </html>

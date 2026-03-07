@@ -15,7 +15,7 @@ if (!isset($_SESSION['user_id'])) {
 }
 
 // Verificar roles permitidos
-$allowed_roles = ['administrador', 'editor'];
+$allowed_roles = ['administrador', 'editor', 'visor'];
 if (!in_array($_SESSION['rol'], $allowed_roles)) {
     header('Location: dashboard.php');
     exit();
@@ -118,7 +118,8 @@ require_once 'header.php';
             <div class="card-header py-3 bg-primary text-white d-flex justify-content-between align-items-center">
                 <h6 class="m-0 font-weight-bold">Listado de Morosos (1+ Mes Vencido)</h6>
                 <div>
-                    <button type="button" class="btn btn-success btn-sm" id="btnWhatsApp" onclick="previewNotifications()">
+                    <button type="button" class="btn btn-success btn-sm" id="btnWhatsApp"
+                        onclick="previewNotifications()">
                         <i class="fab fa-whatsapp"></i> Enviar Notificaciones WhatsApp
                     </button>
                     <a href="notificaciones_ui.php" class="btn btn-outline-light btn-sm ms-1">
@@ -143,7 +144,8 @@ require_once 'header.php';
                 </form>
 
                 <div class="table-responsive">
-                    <table class="table table-bordered table-hover" id="dataTableMorosos" width="100%" cellspacing="0">
+                    <table class="table table-bordered table-hover dt-responsive nowrap" id="dataTableMorosos"
+                        width="100%" cellspacing="0">
                         <thead class="table-light">
                             <tr>
                                 <th>Cliente</th>
@@ -218,7 +220,7 @@ require_once 'header.php';
 <!-- Configuracion de Template WhatsApp (Admin Only) -->
 <?php if ($_SESSION['rol'] === 'administrador'):
     $whatsappTemplate = getWhatsAppTemplate();
-?>
+    ?>
     <div class="col-12 mt-4">
         <div class="card shadow border-left-success">
             <div class="card-header bg-success text-white">
@@ -227,7 +229,8 @@ require_once 'header.php';
             <div class="card-body">
                 <div class="mb-2">
                     <label for="whatsappTemplate" class="form-label fw-bold">Plantilla del mensaje:</label>
-                    <textarea class="form-control" id="whatsappTemplate" rows="3"><?php echo htmlspecialchars($whatsappTemplate); ?></textarea>
+                    <textarea class="form-control" id="whatsappTemplate"
+                        rows="3"><?php echo htmlspecialchars($whatsappTemplate); ?></textarea>
                     <small class="text-muted">
                         Variables disponibles: <code>{nombre}</code> = Nombre completo del cliente,
                         <code>{facturas}</code> = Cantidad de facturas pendientes,
@@ -244,14 +247,16 @@ require_once 'header.php';
 <?php endif; ?>
 
 <!-- Modal de Preview de Notificaciones -->
-<div class="modal fade" id="whatsappPreviewModal" tabindex="-1" aria-labelledby="whatsappPreviewModalLabel" aria-hidden="true">
+<div class="modal fade" id="whatsappPreviewModal" tabindex="-1" aria-labelledby="whatsappPreviewModalLabel"
+    aria-hidden="true">
     <div class="modal-dialog modal-lg">
         <div class="modal-content">
             <div class="modal-header bg-success text-white">
                 <h5 class="modal-title" id="whatsappPreviewModalLabel">
                     <i class="fab fa-whatsapp"></i> Preview de Notificaciones WhatsApp
                 </h5>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"
+                    aria-label="Close"></button>
             </div>
             <div class="modal-body">
                 <div id="previewLoading" class="text-center py-4">
@@ -279,7 +284,8 @@ require_once 'header.php';
                     </div>
                     <div id="previewEmpty" class="alert alert-warning" style="display:none;">
                         <i class="fas fa-exclamation-triangle"></i>
-                        No hay clientes morosos con telefono y API key configurados, o ya fueron notificados en las ultimas 24 horas.
+                        No hay clientes morosos con telefono y API key configurados, o ya fueron notificados en las
+                        ultimas 24 horas.
                     </div>
                 </div>
                 <div id="sendingProgress" style="display:none;">
@@ -287,7 +293,8 @@ require_once 'header.php';
                         <i class="fas fa-spinner fa-spin fa-2x text-success"></i>
                         <p class="mt-2">Enviando mensajes... Esto puede tardar unos segundos.</p>
                         <div class="progress">
-                            <div class="progress-bar bg-success progress-bar-striped progress-bar-animated" id="sendProgressBar" style="width: 100%"></div>
+                            <div class="progress-bar bg-success progress-bar-striped progress-bar-animated"
+                                id="sendProgressBar" style="width: 100%"></div>
                         </div>
                     </div>
                 </div>
@@ -295,7 +302,8 @@ require_once 'header.php';
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
-                <button type="button" class="btn btn-success" id="btnConfirmSend" onclick="sendNotifications()" style="display:none;">
+                <button type="button" class="btn btn-success" id="btnConfirmSend" onclick="sendNotifications()"
+                    style="display:none;">
                     <i class="fab fa-whatsapp"></i> Confirmar y Enviar
                 </button>
             </div>
@@ -311,7 +319,8 @@ require_once 'header.php';
             $('#dataTableMorosos').DataTable({
                 language: { url: '//cdn.datatables.net/plug-ins/1.13.4/i18n/es-ES.json' },
                 searching: false,
-                order: [[3, "desc"]]
+                order: [[3, "desc"]],
+                responsive: true
             });
         }
     });
@@ -336,36 +345,36 @@ require_once 'header.php';
             method: 'POST',
             body: formData
         })
-        .then(r => r.json())
-        .then(data => {
-            document.getElementById('previewLoading').style.display = 'none';
-            document.getElementById('previewContent').style.display = 'block';
+            .then(r => r.json())
+            .then(data => {
+                document.getElementById('previewLoading').style.display = 'none';
+                document.getElementById('previewContent').style.display = 'block';
 
-            if (data.success && data.data.length > 0) {
-                var tbody = document.getElementById('previewTableBody');
-                tbody.innerHTML = '';
-                data.data.forEach(function(item) {
-                    var tr = document.createElement('tr');
-                    tr.innerHTML = '<td><strong>' + escapeHtml(item.nombre) + '</strong></td>'
-                        + '<td>' + escapeHtml(item.telefono) + '</td>'
-                        + '<td class="text-center">' + item.facturas + '</td>'
-                        + '<td class="text-end">$' + item.deuda + '</td>'
-                        + '<td><small>' + escapeHtml(item.mensaje) + '</small></td>';
-                    tbody.appendChild(tr);
-                });
-                document.getElementById('previewEmpty').style.display = 'none';
-                document.getElementById('btnConfirmSend').style.display = 'inline-block';
-            } else {
-                document.getElementById('previewTableBody').innerHTML = '';
-                document.getElementById('previewEmpty').style.display = 'block';
-                document.getElementById('btnConfirmSend').style.display = 'none';
-            }
-        })
-        .catch(err => {
-            document.getElementById('previewLoading').style.display = 'none';
-            document.getElementById('previewContent').innerHTML = '<div class="alert alert-danger">Error: ' + err.message + '</div>';
-            document.getElementById('previewContent').style.display = 'block';
-        });
+                if (data.success && data.data.length > 0) {
+                    var tbody = document.getElementById('previewTableBody');
+                    tbody.innerHTML = '';
+                    data.data.forEach(function (item) {
+                        var tr = document.createElement('tr');
+                        tr.innerHTML = '<td><strong>' + escapeHtml(item.nombre) + '</strong></td>'
+                            + '<td>' + escapeHtml(item.telefono) + '</td>'
+                            + '<td class="text-center">' + item.facturas + '</td>'
+                            + '<td class="text-end">$' + item.deuda + '</td>'
+                            + '<td><small>' + escapeHtml(item.mensaje) + '</small></td>';
+                        tbody.appendChild(tr);
+                    });
+                    document.getElementById('previewEmpty').style.display = 'none';
+                    document.getElementById('btnConfirmSend').style.display = 'inline-block';
+                } else {
+                    document.getElementById('previewTableBody').innerHTML = '';
+                    document.getElementById('previewEmpty').style.display = 'block';
+                    document.getElementById('btnConfirmSend').style.display = 'none';
+                }
+            })
+            .catch(err => {
+                document.getElementById('previewLoading').style.display = 'none';
+                document.getElementById('previewContent').innerHTML = '<div class="alert alert-danger">Error: ' + err.message + '</div>';
+                document.getElementById('previewContent').style.display = 'block';
+            });
     }
 
     function sendNotifications() {
@@ -383,41 +392,41 @@ require_once 'header.php';
             method: 'POST',
             body: formData
         })
-        .then(r => r.json())
-        .then(data => {
-            document.getElementById('sendingProgress').style.display = 'none';
-            var resultsDiv = document.getElementById('sendResults');
+            .then(r => r.json())
+            .then(data => {
+                document.getElementById('sendingProgress').style.display = 'none';
+                var resultsDiv = document.getElementById('sendResults');
 
-            if (data.success) {
-                var d = data.data;
-                var html = '<div class="alert alert-' + (d.failed > 0 ? 'warning' : 'success') + '">';
-                html += '<strong><i class="fas fa-check-circle"></i> Envio completado</strong><br>';
-                html += 'Enviados: <strong>' + d.sent + '</strong><br>';
-                html += 'Fallidos: <strong>' + d.failed + '</strong>';
-                html += '</div>';
+                if (data.success) {
+                    var d = data.data;
+                    var html = '<div class="alert alert-' + (d.failed > 0 ? 'warning' : 'success') + '">';
+                    html += '<strong><i class="fas fa-check-circle"></i> Envio completado</strong><br>';
+                    html += 'Enviados: <strong>' + d.sent + '</strong><br>';
+                    html += 'Fallidos: <strong>' + d.failed + '</strong>';
+                    html += '</div>';
 
-                if (d.details.length > 0) {
-                    html += '<table class="table table-sm"><thead><tr><th>Cliente</th><th>Telefono</th><th>Estado</th><th>Error</th></tr></thead><tbody>';
-                    d.details.forEach(function(item) {
-                        var badge = item.estado === 'enviado'
-                            ? '<span class="badge bg-success">Enviado</span>'
-                            : '<span class="badge bg-danger">Fallido</span>';
-                        html += '<tr><td>' + escapeHtml(item.nombre) + '</td><td>' + escapeHtml(item.telefono) + '</td><td>' + badge + '</td><td><small>' + escapeHtml(item.error || '-') + '</small></td></tr>';
-                    });
-                    html += '</tbody></table>';
+                    if (d.details.length > 0) {
+                        html += '<table class="table table-sm"><thead><tr><th>Cliente</th><th>Telefono</th><th>Estado</th><th>Error</th></tr></thead><tbody>';
+                        d.details.forEach(function (item) {
+                            var badge = item.estado === 'enviado'
+                                ? '<span class="badge bg-success">Enviado</span>'
+                                : '<span class="badge bg-danger">Fallido</span>';
+                            html += '<tr><td>' + escapeHtml(item.nombre) + '</td><td>' + escapeHtml(item.telefono) + '</td><td>' + badge + '</td><td><small>' + escapeHtml(item.error || '-') + '</small></td></tr>';
+                        });
+                        html += '</tbody></table>';
+                    }
+
+                    resultsDiv.innerHTML = html;
+                } else {
+                    resultsDiv.innerHTML = '<div class="alert alert-danger">Error: ' + (data.error || 'Error desconocido') + '</div>';
                 }
-
-                resultsDiv.innerHTML = html;
-            } else {
-                resultsDiv.innerHTML = '<div class="alert alert-danger">Error: ' + (data.error || 'Error desconocido') + '</div>';
-            }
-            resultsDiv.style.display = 'block';
-        })
-        .catch(err => {
-            document.getElementById('sendingProgress').style.display = 'none';
-            document.getElementById('sendResults').innerHTML = '<div class="alert alert-danger">Error: ' + err.message + '</div>';
-            document.getElementById('sendResults').style.display = 'block';
-        });
+                resultsDiv.style.display = 'block';
+            })
+            .catch(err => {
+                document.getElementById('sendingProgress').style.display = 'none';
+                document.getElementById('sendResults').innerHTML = '<div class="alert alert-danger">Error: ' + err.message + '</div>';
+                document.getElementById('sendResults').style.display = 'block';
+            });
     }
 
     function saveTemplate() {
@@ -433,19 +442,19 @@ require_once 'header.php';
             method: 'POST',
             body: formData
         })
-        .then(r => r.json())
-        .then(data => {
-            var span = document.getElementById('templateSaveResult');
-            if (data.success) {
-                span.innerHTML = '<span class="text-success"><i class="fas fa-check"></i> Guardado</span>';
-            } else {
-                span.innerHTML = '<span class="text-danger"><i class="fas fa-times"></i> ' + (data.error || 'Error') + '</span>';
-            }
-            setTimeout(() => { span.innerHTML = ''; }, 3000);
-        })
-        .catch(err => {
-            document.getElementById('templateSaveResult').innerHTML = '<span class="text-danger">Error: ' + err.message + '</span>';
-        });
+            .then(r => r.json())
+            .then(data => {
+                var span = document.getElementById('templateSaveResult');
+                if (data.success) {
+                    span.innerHTML = '<span class="text-success"><i class="fas fa-check"></i> Guardado</span>';
+                } else {
+                    span.innerHTML = '<span class="text-danger"><i class="fas fa-times"></i> ' + (data.error || 'Error') + '</span>';
+                }
+                setTimeout(() => { span.innerHTML = ''; }, 3000);
+            })
+            .catch(err => {
+                document.getElementById('templateSaveResult').innerHTML = '<span class="text-danger">Error: ' + err.message + '</span>';
+            });
     }
 
     function escapeHtml(text) {

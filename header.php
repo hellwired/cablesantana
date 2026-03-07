@@ -48,7 +48,61 @@ function isActive($page)
             box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
         }
 
-        /* Utility to ensure footer stays at bottom if needed, though simpler for now */
+        /* Utilidad para asegurar que el footer quede al final */
+
+        /* === MOBILE BOTTOM NAVIGATION (VISOR) === */
+        <?php if (isset($_SESSION['rol']) && $_SESSION['rol'] === 'visor'): ?>
+            .navbar {
+                display: none !important;
+                /* Ocultar navbar superior para visores */
+            }
+
+            body {
+                padding-bottom: 70px;
+                /* Espacio para el menu inferior */
+                background-color: #f4f6f9;
+            }
+
+            .bottom-nav {
+                position: fixed;
+                bottom: 0;
+                left: 0;
+                right: 0;
+                background-color: #ffffff;
+                box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.1);
+                display: flex;
+                justify-content: space-around;
+                padding: 10px 0;
+                z-index: 1030;
+                border-top: 1px solid #e0e0e0;
+            }
+
+            .bottom-nav-item {
+                text-align: center;
+                color: #6c757d;
+                text-decoration: none;
+                flex-grow: 1;
+                font-size: 0.75rem;
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+            }
+
+            .bottom-nav-item i {
+                font-size: 1.4rem;
+                margin-bottom: 4px;
+            }
+
+            .bottom-nav-item.active {
+                color: #0d6efd;
+                font-weight: 600;
+            }
+
+            .bottom-nav-item:hover {
+                color: #0b5ed7;
+            }
+
+        <?php endif; ?>
     </style>
 </head>
 
@@ -67,11 +121,11 @@ function isActive($page)
             <div class="collapse navbar-collapse" id="navbarMain">
                 <ul class="navbar-nav me-auto mb-2 mb-lg-0">
                     <?php if (isset($_SESSION['rol']) && $_SESSION['rol'] === 'administrador'): ?>
-                    <li class="nav-item">
-                        <a class="nav-link <?php echo isActive('dashboard.php'); ?>" href="dashboard.php">
-                            <i class="fas fa-tachometer-alt me-1"></i> Dashboard
-                        </a>
-                    </li>
+                        <li class="nav-item">
+                            <a class="nav-link <?php echo isActive('dashboard.php'); ?>" href="dashboard.php">
+                                <i class="fas fa-tachometer-alt me-1"></i> Dashboard
+                            </a>
+                        </li>
                     <?php endif; ?>
                     <li class="nav-item">
                         <a class="nav-link <?php echo isActive('users_ui.php'); ?>" href="users_ui.php">
@@ -115,6 +169,13 @@ function isActive($page)
                                 <i class="fas fa-clipboard-list me-1"></i> Auditoría
                             </a>
                         </li>
+                        <?php if ($_SESSION['rol'] === 'administrador'): ?>
+                        <li class="nav-item">
+                            <a class="nav-link <?php echo isActive('arqueo_ui.php'); ?>" href="arqueo_ui.php">
+                                <i class="fas fa-cash-register me-1"></i> Arqueo
+                            </a>
+                        </li>
+                        <?php endif; ?>
                     <?php endif; ?>
                 </ul>
 
@@ -141,5 +202,31 @@ function isActive($page)
         </div>
     </nav>
 
-    <div class="container-fluid px-4">
+    <div class="container-fluid px-2 px-md-4 mt-3 mt-md-0">
         <!-- Start of Main Content -->
+
+        <?php if (isset($_SESSION['rol']) && $_SESSION['rol'] === 'visor'): ?>
+            <!-- Bottom Navigation Bar for 'Visor' Mobile UI -->
+            <nav class="bottom-nav">
+                <a href="visor_dashboard.php" class="bottom-nav-item <?php echo isActive('visor_dashboard.php'); ?>">
+                    <i class="fas fa-home"></i>
+                    <span>Inicio</span>
+                </a>
+                <a href="morosos_ui.php" class="bottom-nav-item <?php echo isActive('morosos_ui.php'); ?>">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    <span>Morosos</span>
+                </a>
+                <a href="cortes_ui.php" class="bottom-nav-item <?php echo isActive('cortes_ui.php'); ?>">
+                    <i class="fas fa-cut"></i>
+                    <span>Cortes</span>
+                </a>
+                <a href="reactivacion_ui.php" class="bottom-nav-item <?php echo isActive('reactivacion_ui.php'); ?>">
+                    <i class="fas fa-plug"></i>
+                    <span>Reactivar</span>
+                </a>
+                <a href="logout.php" class="bottom-nav-item">
+                    <i class="fas fa-sign-out-alt text-danger"></i>
+                    <span class="text-danger">Salir</span>
+                </a>
+            </nav>
+        <?php endif; ?>

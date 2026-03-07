@@ -21,7 +21,8 @@ require_once 'audit_model.php';   // Incluir el modelo de auditoría
  * @param int|null $cliente_id ID del cliente asociado (opcional).
  * @return int|false El ID del usuario insertado si es exitoso, o false en caso de error.
  */
-function createUser($nombre_usuario, $contrasena, $rol, $email = null, $cliente_id = null) {
+function createUser($nombre_usuario, $contrasena, $rol, $email = null, $cliente_id = null)
+{
     $conn = connectDB();
     if (!$conn) {
         return false;
@@ -42,7 +43,6 @@ function createUser($nombre_usuario, $contrasena, $rol, $email = null, $cliente_
     if ($stmt->execute()) {
         $last_id = $stmt->insert_id;
         $stmt->close();
-        closeDB($conn);
 
         // Registrar acción de auditoría
         logAuditAction(
@@ -53,6 +53,8 @@ function createUser($nombre_usuario, $contrasena, $rol, $email = null, $cliente_
             null,
             ['id' => $last_id, 'nombre_usuario' => $nombre_usuario, 'rol' => $rol, 'email' => $email, 'cliente_id' => $cliente_id]
         );
+
+        closeDB($conn); // Cerrar conexión DESPUÉS de auditar
         return $last_id;
     } else {
         // Capturar errores de duplicidad (ej. UNIQUE constraint)
@@ -73,7 +75,8 @@ function createUser($nombre_usuario, $contrasena, $rol, $email = null, $cliente_
  * @param int $id El ID del usuario.
  * @return array|null Un array asociativo con los datos del usuario, o null si no se encuentra.
  */
-function getUserById($id) {
+function getUserById($id)
+{
     $conn = connectDB();
     if (!$conn) {
         return null;
@@ -108,7 +111,8 @@ function getUserById($id) {
  * @param string $nombre_usuario El nombre de usuario.
  * @return array|null Un array asociativo con los datos del usuario, o null si no se encuentra.
  */
-function getUserByUsername($nombre_usuario) {
+function getUserByUsername($nombre_usuario)
+{
     $conn = connectDB();
     if (!$conn) {
         return null;
@@ -142,7 +146,8 @@ function getUserByUsername($nombre_usuario) {
  *
  * @return array Un array de arrays asociativos con los datos de los usuarios.
  */
-function getAllUsers() {
+function getAllUsers()
+{
     $conn = connectDB();
     if (!$conn) {
         return [];
@@ -168,7 +173,8 @@ function getAllUsers() {
  * @param array $data Un array asociativo con los campos a actualizar (ej. ['email' => 'nuevo@email.com', 'rol' => 'editor']).
  * @return bool True si la actualización fue exitosa, false en caso contrario.
  */
-function updateUser($id, $data) {
+function updateUser($id, $data)
+{
     $conn = connectDB();
     if (!$conn) {
         return false;
@@ -225,11 +231,10 @@ function updateUser($id, $data) {
     if ($stmt->execute()) {
         $affected_rows = $stmt->affected_rows;
         $stmt->close();
-        closeDB($conn);
 
         // Registrar acción de auditoría si hubo cambios
         if ($affected_rows > 0) {
-            $updated_user = getUserById($id); // Obtener datos actualizados
+            $updated_user = getUserById($id); // OJO: Abre otra conexión, está bien
             logAuditAction(
                 getCurrentUserId(),
                 'Usuario actualizado',
@@ -239,6 +244,8 @@ function updateUser($id, $data) {
                 $updated_user
             );
         }
+
+        closeDB($conn); // Cerrar después de auditoría principal
         return $affected_rows > 0; // Retorna true si al menos una fila fue afectada
     } else {
         error_log("Error al ejecutar la actualización de usuario: " . $stmt->error);
@@ -254,7 +261,8 @@ function updateUser($id, $data) {
  * @param int $id El ID del usuario a eliminar.
  * @return bool True si la eliminación fue exitosa, false en caso contrario.
  */
-function deleteUser($id) {
+function deleteUser($id)
+{
     $conn = connectDB();
     if (!$conn) {
         return false;
@@ -277,7 +285,6 @@ function deleteUser($id) {
     if ($stmt->execute()) {
         $affected_rows = $stmt->affected_rows;
         $stmt->close();
-        closeDB($conn);
 
         // Registrar acción de auditoría si se eliminó
         if ($affected_rows > 0) {
@@ -290,6 +297,8 @@ function deleteUser($id) {
                 null
             );
         }
+
+        closeDB($conn);
         return $affected_rows > 0; // Retorna true si al menos una fila fue eliminada
     } else {
         error_log("Error al ejecutar la eliminación de usuario: " . $stmt->error);
@@ -306,7 +315,8 @@ function deleteUser($id) {
  * @param string $contrasena Contraseña en texto plano.
  * @return array|null Un array asociativo con los datos del usuario si es válido, o null.
  */
-function verifyUser($nombre_usuario, $contrasena) {
+function verifyUser($nombre_usuario, $contrasena)
+{
     $conn = connectDB();
     if (!$conn) {
         return null;
@@ -367,7 +377,8 @@ function verifyUser($nombre_usuario, $contrasena) {
 
     // Si el usuario no existe o la contraseña es incorrecta
     logAuditAction(null, 'Intento de inicio de sesión fallido', 'usuarios', null, ['nombre_usuario' => $nombre_usuario]);
-    if (isset($stmt)) $stmt->close();
+    if (isset($stmt))
+        $stmt->close();
     closeDB($conn);
     return null;
 }
@@ -384,7 +395,8 @@ function verifyUser($nombre_usuario, $contrasena) {
  * @param string $email El email del usuario.
  * @return array|null Un array asociativo con los datos del usuario, o null si no se encuentra.
  */
-function getUserByEmail($email) {
+function getUserByEmail($email)
+{
     $conn = connectDB();
     if (!$conn) {
         return null;

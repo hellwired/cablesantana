@@ -20,36 +20,37 @@ $audit_logs = getAllAuditLogs();
  * Función auxiliar para renderizar los detalles (anterior/nuevo)
  * Intenta decodificar JSON y muestra un botón colapsable si es complejo.
  */
-function renderAuditDetails(?string $jsonString): string {
+function renderAuditDetails(?string $jsonString): string
+{
     if (empty($jsonString)) {
         return '';
     }
 
     $data = json_decode($jsonString, true);
-    
+
     // Si es JSON válido y es un array/objeto
     if (is_array($data)) {
         // Generar un ID único para el collapse basado en un hash
         $uniqId = substr(md5($jsonString . rand()), 0, 8);
-        
+
         $html = '<button class="btn btn-sm btn-info text-white mb-1" type="button" data-bs-toggle="collapse" data-bs-target="#desc_' . $uniqId . '" aria-expanded="false">';
         $html .= '<i class="fas fa-eye"></i> Ver JSON';
         $html .= '</button>';
-        
+
         $html .= '<div class="collapse" id="desc_' . $uniqId . '">';
         $html .= '<pre style="font-size: 0.75em; max-height: 150px; overflow-y: auto;" class="bg-light p-2 border rounded mt-1">';
         $html .= htmlspecialchars(print_r($data, true));
         $html .= '</pre>';
         $html .= '</div>';
-        
+
         return $html;
     }
 
     // Texto plano
     if (strlen($jsonString) > 50) {
-        return '<span title="'.htmlspecialchars($jsonString).'">'.htmlspecialchars(substr($jsonString, 0, 50)).'...</span>';
+        return '<span title="' . htmlspecialchars($jsonString) . '">' . htmlspecialchars(substr($jsonString, 0, 50)) . '...</span>';
     }
-    
+
     return htmlspecialchars($jsonString);
 }
 
@@ -65,8 +66,8 @@ require_once 'header.php';
             </div>
             <div class="card-body">
                 <div class="table-responsive">
-                    <table class="table table-bordered table-striped table-hover align-middle" id="dataTableAudit"
-                        width="100%" cellspacing="0">
+                    <table class="table table-bordered table-striped table-hover align-middle dt-responsive nowrap"
+                        id="dataTableAudit" width="100%" cellspacing="0">
                         <thead class="table-dark">
                             <tr>
                                 <th>ID</th>
@@ -84,7 +85,8 @@ require_once 'header.php';
                                 <tr>
                                     <td><?php echo $log['id']; ?></td>
                                     <td style="white-space: nowrap;">
-                                        <?php echo date('d/m/Y H:i', strtotime($log['fecha_accion'])); ?></td>
+                                        <?php echo date('d/m/Y H:i', strtotime($log['fecha_accion'])); ?>
+                                    </td>
                                     <td>
                                         <span class="badge bg-light text-dark border">
                                             <i class="fas fa-user-circle me-1"></i>
@@ -95,17 +97,19 @@ require_once 'header.php';
                                     <td><?php echo htmlspecialchars($log['tabla_afectada'] ?? '-'); ?></td>
                                     <td><?php echo htmlspecialchars($log['registro_afectado_id'] ?? '-'); ?></td>
                                     <td>
-                                        <?php if($log['detalle_anterior'] || $log['detalle_nuevo']): ?>
+                                        <?php if ($log['detalle_anterior'] || $log['detalle_nuevo']): ?>
                                             <div class="d-flex flex-column gap-1">
-                                                <?php if($log['detalle_anterior']): ?>
+                                                <?php if ($log['detalle_anterior']): ?>
                                                     <div class="small text-muted border-bottom pb-1 mb-1">
-                                                        <strong>Ant:</strong> <?php echo renderAuditDetails($log['detalle_anterior']); ?>
+                                                        <strong>Ant:</strong>
+                                                        <?php echo renderAuditDetails($log['detalle_anterior']); ?>
                                                     </div>
                                                 <?php endif; ?>
-                                                
-                                                <?php if($log['detalle_nuevo']): ?>
+
+                                                <?php if ($log['detalle_nuevo']): ?>
                                                     <div class="small">
-                                                        <strong>New:</strong> <?php echo renderAuditDetails($log['detalle_nuevo']); ?>
+                                                        <strong>New:</strong>
+                                                        <?php echo renderAuditDetails($log['detalle_nuevo']); ?>
                                                     </div>
                                                 <?php endif; ?>
                                             </div>
@@ -131,8 +135,9 @@ require_once 'header.php';
         $('#dataTableAudit').DataTable({
             "order": [[0, "desc"]],
             "language": {
-                "url": "https://cdn.datatables.net/plug-ins/1.13.4/i18n/es-ES.json"
-            }
+                "url": "//cdn.datatables.net/plug-ins/1.13.4/i18n/es-ES.json"
+            },
+            responsive: true
         });
     });
 </script>

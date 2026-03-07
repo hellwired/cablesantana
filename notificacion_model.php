@@ -270,3 +270,145 @@ function updateWhatsAppTemplate(string $template): bool
     closeDB($conn);
     return $success;
 }
+
+/**
+ * Actualiza el template de recibo digital post-cobro en configuracion.
+ *
+ * @param string $template Nuevo template (variables: {nombre}, {monto}, {factura_id}, {plan}, {fecha}, {saldo_pendiente})
+ * @return bool
+ */
+function updateReceiptTemplate(string $template): bool
+{
+    $conn = connectDB();
+    if (!$conn) return false;
+
+    $stmt = $conn->prepare("UPDATE configuracion SET valor = ? WHERE clave = 'whatsapp_recibo_template'");
+    if (!$stmt) { closeDB($conn); return false; }
+
+    $stmt->bind_param("s", $template);
+    $success = $stmt->execute();
+    $stmt->close();
+    closeDB($conn);
+    return $success;
+}
+
+/**
+ * Envia un recibo digital por WhatsApp al cliente tras registrar un pago exitoso.
+ * Solo envia si el cliente tiene telefono y whatsapp_apikey configurados.
+ * Registra el intento en la tabla notificaciones (estado: enviado/fallido).
+ *
+ * @param int $pago_id     ID del pago recien registrado.
+ * @param int $factura_id  ID de la factura pagada.
+ * @param int $cliente_id  ID del cliente.
+ * @return bool True si se envio o si no aplica (sin apikey). False si el envio fallo.
+ */
+function sendPaymentReceipt(int $pago_id, int $factura_id, int $cliente_id): bool
+{
+    $conn = connectDB();
+    if (!$conn) return false;
+
+    // 1. Obtener datos del cliente
+    $stmt_c = $conn->prepare(
+        "SELECT nombre, apellido, telefono, whatsapp_apikey FROM clientes WHERE id = ?"
+    );
+    if (!$stmt_c) { closeDB($conn); return false; }
+    $stmt_c->bind_param("i", $cliente_id);
+    $stmt_c->execute();
+    $cliente = $stmt_c->get_result()->fetch_assoc();
+    $stmt_c->close();
+
+    if (!$cliente) { closeDB($conn); return false; }
+
+    // 2. Si no tiene telefono o apikey configurados, no aplica enviar (no es error)
+    if (empty($cliente['telefono']) || empty($cliente['whatsapp_apikey'])) {
+        closeDB($conn);
+        return true;
+    }
+
+    // 3. Obtener datos del pago + plan via factura
+    $stmt_p = $conn->prepare(
+        "SELECT p.monto AS monto_pago, p2.nombre_plan
+         FROM pagos p
+         JOIN facturas f ON p.factura_id = f.id
+         JOIN suscripciones s ON f.suscripcion_id = s.id
+         JOIN planes p2 ON s.plan_id = p2.id
+         WHERE p.id = ?"
+    );
+    if (!$stmt_p) { closeDB($conn); return false; }
+    $stmt_p->bind_param("i", $pago_id);
+    $stmt_p->execute();
+    $pago_data = $stmt_p->get_result()->fetch_assoc();
+    $stmt_p->close();
+
+    if (!$pago_data) { closeDB($conn); return false; }
+
+    // 4. Calcular saldo pendiente de la factura tras el pago
+    // Usamos la función de payment_model (ya incluida via payments_ui.php)
+    // Para evitar dependencia circular, hacemos la consulta directamente aqui
+    $stmt_bal = $conn->prepare(
+        "SELECT (f.monto - COALESCE(SUM(pg.monto), 0)) AS saldo
+         FROM facturas f
+         LEFT JOIN pagos pg ON pg.factura_id = f.id AND pg.estado = 'exitoso'
+         WHERE f.id = ?
+         GROUP BY f.id"
+    );
+    $saldo_pendiente = 0.0;
+    if ($stmt_bal) {
+        $stmt_bal->bind_param("i", $factura_id);
+        $stmt_bal->execute();
+        $res_bal = $stmt_bal->get_result()->fetch_assoc();
+        $stmt_bal->close();
+        if ($res_bal) {
+            $saldo_pendiente = max(0, (float)$res_bal['saldo']);
+        }
+    }
+
+    // 5. Obtener template de recibo
+    $stmt_t = $conn->prepare("SELECT valor FROM configuracion WHERE clave = 'whatsapp_recibo_template'");
+    $template = 'Hola {nombre}! Pago de ${monto} recibido (Factura #{factura_id}). Saldo: ${saldo_pendiente}. Gracias!';
+    if ($stmt_t) {
+        $stmt_t->execute();
+        $res_t = $stmt_t->get_result()->fetch_assoc();
+        $stmt_t->close();
+        if ($res_t) $template = $res_t['valor'];
+    }
+
+    closeDB($conn);
+
+    // 6. Construir link del recibo PDF
+    $app_url    = rtrim($_ENV['APP_URL'] ?? ('https://' . ($_SERVER['HTTP_HOST'] ?? 'wavesystem.online') . '/cablecolor'), '/');
+    $app_secret = $_ENV['APP_SECRET'] ?? 'cable_santana_secret';
+    $token_pdf  = hash_hmac('sha256', "recibo-{$pago_id}", $app_secret);
+    $link_recibo = "{$app_url}/recibo_pdf.php?pago_id={$pago_id}&token={$token_pdf}";
+
+    // 7. Construir mensaje
+    $nombre_completo = trim($cliente['nombre'] . ' ' . $cliente['apellido']);
+    $mensaje = str_replace(
+        ['{nombre}', '{monto}', '{factura_id}', '{plan}', '{fecha}', '{saldo_pendiente}', '{link_recibo}'],
+        [
+            $nombre_completo,
+            number_format((float)$pago_data['monto_pago'], 2),
+            $factura_id,
+            $pago_data['nombre_plan'],
+            date('d/m/Y H:i'),
+            number_format($saldo_pendiente, 2),
+            $link_recibo
+        ],
+        $template
+    );
+
+    // 7. Enviar via CallMeBot
+    $result = sendWhatsAppMessage($cliente['telefono'], $cliente['whatsapp_apikey'], $mensaje);
+
+    // 8. Registrar intento en notificaciones
+    logNotification(
+        $cliente_id,
+        'whatsapp',
+        $mensaje,
+        $result['success'] ? 'enviado' : 'fallido',
+        $result['error'],
+        $factura_id
+    );
+
+    return $result['success'];
+}

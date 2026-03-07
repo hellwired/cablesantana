@@ -198,3 +198,110 @@ Permitir registrar el teléfono de WhatsApp y la API Key de CallMeBot de cada cl
 *   `/client_model.php` (Modificado — createClient, getClientById, getAllClients, searchClients)
 *   `/clients_ui.php` (Modificado — formularios crear/editar, handlers POST, JS modal)
 *   `/client_rows_partial.php` (Modificado — data-attributes para edición)
+
+---
+
+## 9. Bloqueo de Pagos Registrados
+
+### Objetivo
+Que el sistema sea la única fuente de verdad: un cobro ingresado no puede editarse ni eliminarse sin autorización explícita del administrador, dejando siempre trazabilidad.
+
+### Migración de Base de Datos
+Script: `migration_v5.sql` (ejecutado en producción):
+*   `ALTER TABLE pagos`: Agrega las columnas `referencia_pago` (VARCHAR 255), `descripcion` (TEXT), `bloqueado` (TINYINT DEFAULT **1** — bloqueo automático al crear), `registrado_por` (INT FK a `usuarios`), `motivo_desbloqueo` (TEXT), `desbloqueado_por` (INT), `fecha_desbloqueo` (DATETIME).
+*   Todos los pagos nuevos quedan bloqueados (`bloqueado = 1`) en el momento del INSERT sin necesidad de acción adicional.
+
+### Implementación
+
+1.  **Modelo (`payment_model.php`)** — Modificado:
+    *   `createPayment()`: Nuevo parámetro `$registrado_por`. INSERT incluye `bloqueado = 1` hardcoded y guarda `registrado_por = $_SESSION['user_id']`.
+    *   `updatePayment()`: Guardia al inicio — si `bloqueado = 1`, retorna el centinela `'LOCKED'` (string) en lugar de `false`, permitiendo al llamador diferenciar entre "bloqueado" y "error real".
+    *   `deletePayment()`: Misma guardia que `updatePayment()`, retorna `'LOCKED'` si el pago está bloqueado.
+    *   `unlockPayment($pago_id, $admin_id, $motivo)`: Nueva función. Setea `bloqueado = 0`, guarda motivo, admin y fecha. Llama a `logAuditAction()` con estado anterior y nuevo en JSON. Solo opera si el pago estaba en `bloqueado = 1` (usa `affected_rows > 0` como confirmación).
+    *   `lockPayment($pago_id)`: Nueva función auxiliar para re-bloquear un pago si fuera necesario.
+    *   `getAllPayments()`: JOIN a `usuarios` para mostrar `registrado_por_nombre` en la tabla.
+
+2.  **Interfaz (`payments_ui.php`)** — Modificado:
+    *   Handler `unlock_payment` (POST, solo `administrador`): valida motivo obligatorio, llama `unlockPayment()`, redirige con mensaje de sesión.
+    *   Tabla de pagos: columnas "Cobrador" y "Estado" (badge Bloqueado/Libre). Filas bloqueadas en fondo gris, desbloqueadas en amarillo.
+    *   Botones de acción condicionales: si `bloqueado = 1` solo muestra "Desbloquear" (admin) o "Sin acceso" (otros roles). Si `bloqueado = 0` muestra "Editar" y "Eliminar".
+    *   Modal `#unlockPaymentModal`: datos del pago en modo lectura, textarea de motivo obligatoria con alerta de auditoría.
+    *   Manejo del centinela `'LOCKED'`: mensajes de error claros cuando se intenta editar/eliminar un pago bloqueado.
+
+### Archivos Afectados
+*   `/migration_v5.sql` (Nuevo — migración SQL)
+*   `/payment_model.php` (Modificado — createPayment, updatePayment, deletePayment + unlockPayment, lockPayment, getAllPayments)
+*   `/payments_ui.php` (Modificado — handler unlock, tabla con estado lock, modal desbloqueo, centinela LOCKED)
+
+---
+
+## 10. Arqueo de Caja Diario
+
+### Objetivo
+Al final del día, el administrador puede verificar exactamente cuánto efectivo debería tener cada cobrador (visor) según los registros del sistema, y compararlo con el monto físico recibido.
+
+### Migración de Base de Datos
+Script: `migration_v5.sql` (mismo archivo de la sección 9):
+*   `CREATE TABLE arqueos_caja`: Campos `admin_id`, `visor_id`, `fecha_arqueo`, `monto_esperado`, `monto_real`, `diferencia`, `estado` (ENUM: cuadrado/faltante/sobrante), `observaciones`, `fecha_registro`.
+
+### Implementación
+
+1.  **Modelo (`arqueo_model.php`)** — Archivo nuevo:
+    *   `getVisorUsers()`: Lista de usuarios con rol `visor` activos (cobradores de campo).
+    *   `calcularArqueoEfectivo($visor_id, $fecha)`: Consulta `pagos` filtrando por `metodo_pago_id = 1` (efectivo), `estado = 'exitoso'`, `registrado_por = $visor_id` y `fecha_pago BETWEEN 00:00 AND 23:59`. Retorna `{total_esperado, cantidad_cobros, detalle[]}`.
+    *   `registrarArqueo(...)`: INSERT en `arqueos_caja` + llamada a `logAuditAction()` automática.
+    *   `getArqueosHistorial($limit)`: Historial con JOIN a `usuarios` para nombres de cobrador y admin.
+
+2.  **Interfaz (`arqueo_ui.php`)** — Archivo nuevo (acceso solo `administrador`):
+    *   **Sección Calcular**: Selector de cobrador (visores activos) + date picker (default: ayer).
+    *   **Sección Resultado** (aparece tras POST `calcular_arqueo`, sin guardar aún): tabla detallada de cobros del día, total sistema, input "Efectivo recibido físico", cálculo de diferencia y estado en tiempo real con JavaScript.
+    *   **Sección Guardar** (POST `guardar_arqueo`): guarda en `arqueos_caja` + auditoría + redirect.
+    *   **Historial**: DataTable con todos los arqueos previos, badges de estado por color (verde=cuadrado, rojo=faltante, amarillo=sobrante).
+
+3.  **Menú (`header.php`)** — Modificado:
+    *   Link "Arqueo" con ícono `fa-cash-register`, visible solo para `administrador`.
+
+### Notas Técnicas
+*   El arqueo de efectivo depende del campo `registrado_por` en `pagos` (implementado en sección 9). Los pagos anteriores a `migration_v5.sql` tendrán `registrado_por = NULL` y no aparecerán en el cálculo por cobrador.
+
+### Archivos Afectados
+*   `/migration_v5.sql` (Nuevo — tabla `arqueos_caja`)
+*   `/arqueo_model.php` (Nuevo — modelo de arqueo)
+*   `/arqueo_ui.php` (Nuevo — interfaz de arqueo)
+*   `/header.php` (Modificado — link Arqueo en menú admin)
+
+---
+
+## 11. Recibo Digital Automático Post-Cobro
+
+### Objetivo
+Inmediatamente después de registrar un pago exitoso, el sistema envía automáticamente un WhatsApp de confirmación al cliente, cerrando el ciclo de auditoría externa (el cliente sabe que el pago fue registrado).
+
+### Migración de Base de Datos
+Script: `migration_v5.sql` (mismo archivo):
+*   `INSERT INTO configuracion`: Clave `whatsapp_recibo_template` con template por defecto y variables `{nombre}`, `{monto}`, `{factura_id}`, `{plan}`, `{fecha}`, `{saldo_pendiente}`.
+
+### Implementación
+
+1.  **Modelo (`notificacion_model.php`)** — Modificado:
+    *   `sendPaymentReceipt($pago_id, $factura_id, $cliente_id)`: Nueva función. Si el cliente no tiene `telefono` o `whatsapp_apikey`, retorna `true` silenciosamente (no aplica). De lo contrario: consulta datos del pago+plan via JOIN, calcula saldo pendiente de la factura, obtiene template de `configuracion`, construye mensaje y llama a `sendWhatsAppMessage()`. Registra el intento en `notificaciones` (estado: enviado/fallido). Evita dependencia circular con `payment_model.php` al calcular el saldo directamente con SQL.
+    *   `updateReceiptTemplate($template)`: Nueva función análoga a `updateWhatsAppTemplate()`, opera sobre la clave `whatsapp_recibo_template`.
+
+2.  **Interfaz (`payments_ui.php`)** — Modificado:
+    *   `sendPaymentReceipt()` se llama en los 3 paths de pago exitoso: pago múltiple (loop de facturas), pago simple (factura más antigua) y pago adelantado.
+
+3.  **Bug Fix (`payment_model.php`)** — Modificado:
+    *   `getInvoiceWithDetailsById($invoice_id)`: Función implementada por primera vez. Estaba referenciada en `pagar.php`, `confirmar_pago.php` y `demo_flow.php` pero no definida en ningún archivo, causando errores fatales. Retorna datos de factura + cliente + plan via JOIN a `suscripciones` y `planes`.
+
+### Template de Recibo (editable en tabla `configuracion`)
+```
+Hola {nombre}! Confirmamos tu pago de ${monto} por Factura #{factura_id} ({plan}).
+Fecha: {fecha}. Saldo pendiente: ${saldo_pendiente}. Gracias - Cable Santana.
+```
+Variables disponibles: `{nombre}`, `{monto}`, `{factura_id}`, `{plan}`, `{fecha}`, `{saldo_pendiente}`
+
+### Archivos Afectados
+*   `/migration_v5.sql` (Modificado — INSERT template recibo)
+*   `/notificacion_model.php` (Modificado — sendPaymentReceipt, updateReceiptTemplate)
+*   `/payment_model.php` (Modificado — getInvoiceWithDetailsById implementada)
+*   `/payments_ui.php` (Modificado — llamadas a sendPaymentReceipt en los 3 paths de pago)
