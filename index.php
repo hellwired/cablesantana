@@ -1,0 +1,184 @@
+<?php
+require_once 'plan_model.php';
+$plans = getAllPlans();
+?>
+<!-- index.html -->
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cable Color Santa Ana - Tu Conexión al Futuro</title>
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Custom CSS (if any, though we'll try to minimize it) -->
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+</head>
+<body class="bg-gray-100 text-gray-800">
+
+    <!-- Header -->
+    <nav class="navbar navbar-expand-sm navbar-dark bg-primary sticky-top shadow-md">
+        <div class="container-fluid">
+            <a class="navbar-brand" href="#">
+                <!-- SVG for the logo -->
+                <svg class="navbar-logo text-white inline-block align-text-top" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M5 12.55a11 11 0 0 1 14.08 0"></path>
+                    <path d="M1.42 9a16 16 0 0 1 21.16 0"></path>
+                    <path d="M8.53 16.11a6 6 0 0 1 6.95 0"></path>
+                    <line x1="12" y1="20" x2="12" y2="20"></line>
+                </svg>
+                Cable Color Santa Ana
+            </a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav ms-auto">
+                    <li class="nav-item">
+                        <a class="nav-link" href="#inicio">Inicio</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="#servicios">Servicios</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="#planes">Planes</a>
+                    </li>
+                    
+                    <li class="nav-item">
+                        <a class="nav-link" href="login.php">Login</a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Home Section (Hero) -->
+    <section id="inicio" class="position-relative text-white text-center" style="height: 100vh; overflow: hidden;">
+        <video
+            class="position-absolute top-0 start-0 w-100 h-100"
+            style="object-fit: cover; z-index: -1;"
+            autoplay
+            loop
+            muted
+            playsinline
+            loading="lazy"
+            poster="path/to/your/poster-image.jpg" <!-- Asegúrate de reemplazar esto con una imagen real -->
+        >
+            <source src="video/cablecolorsantana.mp4" type="video/mp4">
+            <!-- Opcional: Agrega una versión WebM para mejor rendimiento y compatibilidad -->
+            <!-- <source src="video/cablecolorsantana.webm" type="video/webm"> -->
+            Tu navegador no soporta la etiqueta de video.
+        </video>
+        <div class="container d-flex flex-column justify-content-center h-100" style="z-index: 1;">
+            <p class="lead mb-4">Bienvenido a</p>
+            <h2 class="display-4 fw-bold mb-4">
+                <span class="d-block">La Conexión</span>
+                <span class="d-block mt-2">que te Impulsa</span>
+            </h2>
+            <p class="lead mb-5">Internet de alta velocidad y televisión digital para tu hogar y negocio.</p>
+            <button class="btn btn-light btn-lg rounded-pill shadow-lg mx-auto">
+                Explorar Servicios
+            </button>
+        </div>
+    </section>
+
+    <!-- Services Section -->
+    <section id="servicios" class="py-5 bg-light">
+        <div class="container px-4">
+            <h2 class="text-center mb-5">Nuestros Servicios</h2>
+            <div class="row row-cols-1 row-cols-md-3 g-4">
+                <!-- Service Card 1 -->
+                <div class="col">
+                    <div class="card h-100 shadow-sm">
+                        <div class="card-body">
+                            <h3 class="card-title text-primary">Internet Fibra Óptica</h3>
+                            <p class="card-text">Velocidad y estabilidad para que navegues, trabajes y estudies sin interrupciones.</p>
+                        </div>
+                    </div>
+                </div>
+                <!-- Service Card 2 -->
+                <div class="col">
+                    <div class="card h-100 shadow-sm">
+                        <div class="card-body">
+                            <h3 class="card-title text-primary">Televisión Digital</h3>
+                            <p class="card-text">La mejor programación con calidad de imagen y sonido superior.</p>
+                        </div>
+                    </div>
+                </div>
+                <!-- Service Card 3 -->
+                <div class="col">
+                    <div class="card h-100 shadow-sm">
+                        <div class="card-body">
+                            <h3 class="card-title text-primary">Soporte Técnico 24/7</h3>
+                            <p class="card-text">Siempre disponibles para resolver tus dudas y problemas.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Plans and Pricing Section -->
+    <section id="planes" class="py-5 bg-info bg-opacity-10">
+        <div class="container px-4">
+            <h2 class="text-center mb-5">Nuestros Planes</h2>
+            <div class="row row-cols-1 row-cols-md-3 g-4">
+                        <?php if (!empty($plans)): ?>
+                            <?php foreach ($plans as $plan): ?>
+                                <div class="col">
+                                    <div class="card h-100 shadow-sm">
+                                        <div class="card-body d-flex flex-column">
+                                            <h3 class="card-title text-primary"><?php echo htmlspecialchars($plan['nombre_plan']); ?></h3>
+                                            <p class="card-text"><?php echo htmlspecialchars($plan['descripcion']); ?></p>
+                                            <ul class="list-unstyled text-muted mb-4">
+                                                <!-- You can add more dynamic features here if they are in the DB -->
+                                                <li>Internet y Cable</li>
+                                                <li>Soporte 24/7</li>
+                                            </ul>
+                                            <div class="h3 text-primary mt-auto mb-4">$<?php echo number_format($plan['precio_mensual'], 2); ?>/mes</div>
+                                            <a href="registro.php?plan_id=<?php echo $plan['id']; ?>" class="btn btn-primary w-100 rounded-pill shadow-lg">Contratar Ahora</a>
+                                        </div>
+                                    </div>
+                                </div>
+                            <?php endforeach; ?>
+                        <?php else: ?>
+                            <div class="col-12">
+                                <p class="text-center">No hay planes disponibles en este momento. Por favor, inténtelo más tarde.</p>
+                            </div>
+                        <?php endif; ?>
+                    </div>
+        </div>
+    </section>
+
+    
+
+    <!-- Footer -->
+    <footer class="bg-dark text-white py-4">
+        <div class="container">
+            <div class="row align-items-center">
+                <div class="col-md-4 mb-3 mb-md-0">
+                    <h5 class="text-uppercase mb-0">Cable Color Santa Ana</h5>
+                </div>
+                <div class="col-md-4 mb-3 mb-md-0 text-center">
+                    <a href="#inicio" class="text-white text-decoration-none mx-2">Inicio</a>
+                    <a href="#servicios" class="text-white text-decoration-none mx-2">Servicios</a>
+                    <a href="login.php" class="text-white text-decoration-none mx-2">Login</a>
+                </div>
+                <div class="col-md-4 text-center text-md-end">
+                    <a href="#" class="text-white me-3 fs-5"><i class="fab fa-facebook-f"></i></a>
+                    <a href="#" class="text-white me-3 fs-5"><i class="fab fa-twitter"></i></a>
+                    <a href="#" class="text-white me-3 fs-5"><i class="fab fa-instagram"></i></a>
+                    <a href="#" class="text-white fs-5"><i class="fab fa-linkedin-in"></i></a>
+                </div>
+            </div>
+            <hr class="my-3">
+            <div class="text-center">
+                <p class="mb-0 small">&copy; 2025 Cable Color Santa Ana. Todos los derechos reservados.</p>
+            </div>
+        </div>
+    </footer>
+   
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
