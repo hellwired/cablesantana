@@ -56,16 +56,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
     if ($_SESSION['rol'] === 'administrador' || $_SESSION['rol'] === 'editor') {
         switch ($_POST['action']) {
             case 'create_client':
+                $email_input = !empty($_POST['correo_electronico'])
+                    ? $_POST['correo_electronico']
+                    : ('sin-correo-' . bin2hex(random_bytes(5)) . '@placeholder.local');
                 $result = createClient(
                     $_POST['dni'],
                     $_POST['nombre'],
                     $_POST['apellido'],
-                    $_POST['direccion'] ?? null,
-                    $_POST['correo_electronico'] ?? null,
+                    !empty($_POST['direccion']) ? $_POST['direccion'] : null,
+                    $email_input,
                     (int) ($_POST['plan_id'] ?? 0),
-                    $_POST['notas_cliente'] ?? null,
-                    $_POST['telefono'] ?? null,
-                    $_POST['whatsapp_apikey'] ?? null
+                    !empty($_POST['notas_cliente']) ? $_POST['notas_cliente'] : null,
+                    !empty($_POST['telefono']) ? $_POST['telefono'] : null,
+                    !empty($_POST['whatsapp_apikey']) ? $_POST['whatsapp_apikey'] : null
                 );
                 if ($result === 'DUPLICATE_DNI') {
                     $message = ['text' => 'Error: Ya existe un cliente con ese DNI.', 'type' => 'danger'];
@@ -82,11 +85,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                     'dni' => $_POST['dni_edit'],
                     'nombre' => $_POST['nombre_edit'],
                     'apellido' => $_POST['apellido_edit'],
-                    'direccion' => $_POST['direccion_edit'] ?? null,
-                    'correo_electronico' => $_POST['correo_electronico_edit'] ?? null,
-                    'notas_cliente' => $_POST['notas_cliente_edit'] ?? null,
-                    'telefono' => $_POST['telefono_edit'] ?? null,
-                    'whatsapp_apikey' => $_POST['whatsapp_apikey_edit'] ?? null
+                    'direccion' => !empty($_POST['direccion_edit']) ? $_POST['direccion_edit'] : null,
+                    'correo_electronico' => !empty($_POST['correo_electronico_edit']) ? $_POST['correo_electronico_edit'] : null,
+                    'notas_cliente' => !empty($_POST['notas_cliente_edit']) ? $_POST['notas_cliente_edit'] : null,
+                    'telefono' => !empty($_POST['telefono_edit']) ? $_POST['telefono_edit'] : null,
+                    'whatsapp_apikey' => !empty($_POST['whatsapp_apikey_edit']) ? $_POST['whatsapp_apikey_edit'] : null
                 ];
 
                 if (updateClient($client_id, $data_to_update)) {

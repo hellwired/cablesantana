@@ -11,6 +11,7 @@ test_*.html
 simulate_*.php
 brute_force_db.php
 check_*.php
+!check_client_status.php
 kill_mysql_processes.php
 ajax_debug.log
 
